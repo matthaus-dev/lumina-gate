@@ -3,13 +3,13 @@ import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyDhOscz4koGuJCGqQdG83_vFTEp1jnQSok",
-  authDomain: "lumina-gate.firebaseapp.com",
-  projectId: "lumina-gate",
-  storageBucket: "lumina-gate.firebasestorage.app",
-  messagingSenderId: "917495283582",
-  appId: "1:917495283582:web:599cdeb13d74b16e8f7d2f",
-  measurementId: "G-QLXYCM4GNF"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
 const app = initializeApp(firebaseConfig);
