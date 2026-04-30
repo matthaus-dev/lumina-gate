@@ -2,7 +2,17 @@
 import React, { useState, useEffect } from "react";
 import { db } from "./firebase";
 import { collection, addDoc, updateDoc, doc, onSnapshot, query, where, serverTimestamp } from "firebase/firestore";
-import { mockedStudents, agruparPorSerie } from "./mockedStudents";
+
+const agruparPorSerie = (students) => {
+  const agrupado = {};
+  students.forEach(student => {
+    if (!agrupado[student.serie]) {
+      agrupado[student.serie] = [];
+    }
+    agrupado[student.serie].push(student);
+  });
+  return agrupado;
+};
 
 const styles = {
   container: {
@@ -108,11 +118,39 @@ const styles = {
 };
 
 export default function Porteiro() {
+  const [students, setStudents] = useState([]);
   const [selectedSerie, setSelectedSerie] = useState(null);
   const [activeCalls, setActiveCalls] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [loadingStudents, setLoadingStudents] = useState(true);
 
-  const studentsBySerie = agruparPorSerie(mockedStudents);
+  // Buscar alunos da API
+  useEffect(() => {
+    const fetchStudents = async () => {
+      try {
+        const apiUrl = import.meta.env.VITE_API_URL;
+        console.log(`[Porteiro] Buscando alunos de: ${apiUrl}/students`);
+        
+        const response = await fetch(`${apiUrl}/students`);
+        if (!response.ok) {
+          throw new Error(`Erro ao buscar alunos: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log(`[Porteiro] ✅ ${data.data.length} alunos carregados`, data.data);
+        setStudents(data.data);
+      } catch (error) {
+        console.error("[Porteiro] ❌ Erro ao buscar alunos:", error);
+        alert("Erro ao carregar alunos: " + error.message);
+      } finally {
+        setLoadingStudents(false);
+      }
+    };
+
+    fetchStudents();
+  }, []);
+
+  const studentsBySerie = agruparPorSerie(students);
   const series = Object.keys(studentsBySerie).sort();
 
   // Inicializar com primeira série
@@ -188,26 +226,40 @@ export default function Porteiro() {
     <div style={styles.container}>
       <h2 style={styles.header}>📞 Porteiro - Lista de Alunos</h2>
 
-      {/* Abas de Séries */}
-      <div style={styles.tabsContainer}>
-        {series.map(serie => (
-          <button
-            key={serie}
-            style={{
-              ...styles.tab,
-              ...(selectedSerie === serie ? styles.tabActive : {}),
-            }}
-            onClick={() => setSelectedSerie(serie)}
-          >
-            {serie}
-          </button>
-        ))}
-      </div>
+      {loadingStudents && (
+        <div style={{ textAlign: "center", padding: "20px", color: "#666" }}>
+          Carregando alunos...
+        </div>
+      )}
 
-      {/* Lista de Alunos */}
-      {selectedSerie && (
-        <div style={styles.section}>
-          <h3 style={styles.sectionTitle}>Alunos da Série {selectedSerie}</h3>
+      {!loadingStudents && series.length === 0 && (
+        <div style={{ textAlign: "center", padding: "20px", color: "#999" }}>
+          Nenhum aluno disponível
+        </div>
+      )}
+
+      {!loadingStudents && (
+        <>
+          {/* Abas de Séries */}
+          <div style={styles.tabsContainer}>
+            {series.map(serie => (
+              <button
+                key={serie}
+                style={{
+                  ...styles.tab,
+                  ...(selectedSerie === serie ? styles.tabActive : {}),
+                }}
+                onClick={() => setSelectedSerie(serie)}
+              >
+                {serie}
+              </button>
+            ))}
+          </div>
+
+          {/* Lista de Alunos */}
+          {selectedSerie && (
+            <div style={styles.section}>
+              <h3 style={styles.sectionTitle}>Alunos da Série {selectedSerie}</h3>
           <div style={styles.studentList}>
             {studentsBySerie[selectedSerie].map(student => {
               const alreadyInQueue = activeCalls.some(c => c.studentId === student.id);
@@ -308,6 +360,8 @@ export default function Porteiro() {
           </div>
         )}
       </div>
+        </>
+      )}
     </div>
   );
 }

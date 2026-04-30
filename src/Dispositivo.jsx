@@ -183,7 +183,7 @@ export default function Dispositivo() {
   }, [allCalls, currentCallIndex]);
 
   const speakCall = (call) => {
-    const message = `Aluno ${call.studentName}, turma ${call.studentClass}`;
+    const message = `${call.studentName}, turma ${call.studentClass}`;
     const utterance = new SpeechSynthesisUtterance(message);
 
     utterance.lang = "pt-BR";
