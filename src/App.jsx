@@ -3,6 +3,26 @@ import React, { useState } from "react";
 import Porteiro from "./Porteiro";
 import Dispositivo from "./Dispositivo";
 
+const mediaQueries = `
+  @media (max-width: 640px) {
+    .app-content-wrapper {
+      padding: 20px !important;
+    }
+    .app-header {
+      font-size: 24px !important;
+    }
+    .app-buttons-container {
+      gap: 12px !important;
+    }
+    .app-mode-button {
+      flex: 1 1 100% !important;
+      min-width: auto !important;
+      font-size: 14px !important;
+      padding: 12px 16px !important;
+    }
+  }
+`;
+
 const styles = {
   container: {
     padding: 20,
@@ -89,13 +109,14 @@ export default function App() {
   if (!modo) {
     return (
       <div style={styles.container}>
-        <div style={styles.contentWrapper}>
-          <h1 style={styles.header}>🚪 Sistema Chamada Escolar</h1>
+        <style>{mediaQueries}</style>
+        <div style={styles.contentWrapper} className="app-content-wrapper">
+          <h1 style={styles.header} className="app-header">🚪 Sistema Chamada Escolar</h1>
           <p style={styles.subtitle}>
             Selecione o modo de operação para começar
           </p>
           
-          <div style={styles.buttonsContainer}>
+          <div style={styles.buttonsContainer} className="app-buttons-container">
             <button
               style={{
                 ...styles.modeButton,

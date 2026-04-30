@@ -3,6 +3,41 @@ import React, { useEffect, useState } from "react";
 import { db } from "./firebase";
 import { collection, onSnapshot, query, where, getDocs } from "firebase/firestore";
 
+const dispositivoMediaQueries = `
+  @media (max-width: 768px) {
+    .dispositivo-container {
+      padding: 12px !important;
+    }
+    .dispositivo-header {
+      font-size: 18px !important;
+      margin-bottom: 16px !important;
+    }
+    .dispositivo-status-container {
+      padding: 16px !important;
+      margin-bottom: 20px !important;
+    }
+    .dispositivo-status-text {
+      font-size: 14px !important;
+    }
+    .dispositivo-section {
+      margin-bottom: 24px !important;
+    }
+    .dispositivo-section-title {
+      font-size: 16px !important;
+      margin-bottom: 12px !important;
+    }
+    .dispositivo-call-card {
+      flex-direction: column !important;
+      align-items: flex-start !important;
+      gap: 12px !important;
+      padding: 12px !important;
+    }
+    .dispositivo-call-info {
+      width: 100% !important;
+    }
+  }
+`;
+
 const styles = {
   container: {
     padding: 20,
@@ -206,13 +241,14 @@ export default function Dispositivo() {
   };
 
   return (
-    <div style={styles.container}>
+    <div style={styles.container} className="dispositivo-container">
       <style>{keyframes}</style>
+      <style>{dispositivoMediaQueries}</style>
 
-      <h2 style={styles.header}>🔊 Dispositivo - Fila de Chamadas</h2>
+      <h2 style={styles.header} className="dispositivo-header">🔊 Dispositivo - Fila de Chamadas</h2>
 
-      <div style={styles.statusContainer}>
-        <p style={styles.statusText}>
+      <div style={styles.statusContainer} className="dispositivo-status-container">
+        <p style={styles.statusText} className="dispositivo-status-text">
           {allCalls.length === 0
             ? "✓ Nenhuma chamada. Aguardando..."
             : `🔴 ${allCalls.length} aluno(s) na fila - Chamando...`}
@@ -222,12 +258,13 @@ export default function Dispositivo() {
       {allCalls.length === 0 ? (
         <p style={styles.emptyMessage}>Nenhuma chamada no momento. Aguardando...</p>
       ) : (
-        <div style={styles.callsList}>
+        <div style={styles.callsList} className="dispositivo-section">
           {allCalls.map((call, idx) => {
             const isCurrentCall = idx === currentCallIndex;
             return (
               <div
                 key={call.id}
+                className="dispositivo-call-card"
                 style={{
                   ...styles.callCard,
                   ...(isCurrentCall
@@ -242,7 +279,7 @@ export default function Dispositivo() {
                       }),
                 }}
               >
-                <div style={styles.callInfo}>
+                <div style={styles.callInfo} className="dispositivo-call-info">
                   <div
                     style={{
                       display: "flex",

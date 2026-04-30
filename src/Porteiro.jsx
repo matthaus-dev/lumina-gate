@@ -14,6 +14,59 @@ const agruparPorSerie = (students) => {
   return agrupado;
 };
 
+const porteirMediaQueries = `
+  @media (max-width: 768px) {
+    .porteiro-container {
+      padding: 12px !important;
+    }
+    .porteiro-header {
+      font-size: 20px !important;
+      margin-bottom: 16px !important;
+    }
+    .porteiro-tabs-container {
+      gap: 6px !important;
+      margin-bottom: 20px !important;
+    }
+    .porteiro-tab {
+      padding: 8px 12px !important;
+      font-size: 12px !important;
+    }
+    .porteiro-section {
+      margin-bottom: 24px !important;
+    }
+    .porteiro-section-title {
+      font-size: 16px !important;
+      margin-bottom: 12px !important;
+    }
+    .porteiro-student-card {
+      flex-direction: column !important;
+      align-items: flex-start !important;
+      gap: 10px !important;
+      padding: 10px !important;
+    }
+    .porteiro-student-name {
+      font-size: 14px !important;
+      width: 100% !important;
+    }
+    .porteiro-call-button {
+      width: 100% !important;
+      padding: 10px 12px !important;
+      font-size: 13px !important;
+    }
+    .porteiro-active-call-card {
+      flex-direction: column !important;
+      align-items: flex-start !important;
+      gap: 12px !important;
+      padding: 10px !important;
+    }
+    .porteiro-confirm-button {
+      width: 100% !important;
+      padding: 10px 12px !important;
+      font-size: 13px !important;
+    }
+  }
+`;
+
 const styles = {
   container: {
     padding: 20,
@@ -31,6 +84,7 @@ const styles = {
     marginBottom: 30,
     borderBottom: "2px solid #ddd",
     paddingBottom: 10,
+    flexWrap: "wrap",
   },
   tab: {
     padding: "10px 20px",
@@ -223,8 +277,9 @@ export default function Porteiro() {
   };
 
   return (
-    <div style={styles.container}>
-      <h2 style={styles.header}>📞 Porteiro - Lista de Alunos</h2>
+    <div style={styles.container} className="porteiro-container">
+      <style>{porteirMediaQueries}</style>
+      <h2 style={styles.header} className="porteiro-header">📞 Porteiro - Lista de Alunos</h2>
 
       {loadingStudents && (
         <div style={{ textAlign: "center", padding: "20px", color: "#666" }}>
@@ -241,10 +296,11 @@ export default function Porteiro() {
       {!loadingStudents && (
         <>
           {/* Abas de Séries */}
-          <div style={styles.tabsContainer}>
+          <div style={styles.tabsContainer} className="porteiro-tabs-container">
             {series.map(serie => (
               <button
                 key={serie}
+                className="porteiro-tab"
                 style={{
                   ...styles.tab,
                   ...(selectedSerie === serie ? styles.tabActive : {}),
@@ -258,15 +314,16 @@ export default function Porteiro() {
 
           {/* Lista de Alunos */}
           {selectedSerie && (
-            <div style={styles.section}>
-              <h3 style={styles.sectionTitle}>Alunos da Série {selectedSerie}</h3>
+            <div style={styles.section} className="porteiro-section">
+              <h3 style={styles.sectionTitle} className="porteiro-section-title">Alunos da Série {selectedSerie}</h3>
           <div style={styles.studentList}>
             {studentsBySerie[selectedSerie].map(student => {
               const alreadyInQueue = activeCalls.some(c => c.studentId === student.id);
               return (
-                <div key={student.id} style={styles.studentCard}>
-                  <span style={styles.studentName}>{student.nome}</span>
+                <div key={student.id} style={styles.studentCard} className="porteiro-student-card">
+                  <span style={styles.studentName} className="porteiro-student-name">{student.nome}</span>
                   <button
+                    className="porteiro-call-button"
                     style={{
                       ...styles.callButton,
                       ...(alreadyInQueue
@@ -291,8 +348,8 @@ export default function Porteiro() {
       )}
 
       {/* Fila de Chamadas */}
-      <div style={styles.section}>
-        <h3 style={styles.sectionTitle}>
+      <div style={styles.section} className="porteiro-section">
+        <h3 style={styles.sectionTitle} className="porteiro-section-title">
           📋 Fila de Chamadas ({activeCalls.length})
         </h3>
         {activeCalls.length === 0 ? (
@@ -304,6 +361,7 @@ export default function Porteiro() {
               return (
                 <div
                   key={call.id}
+                  className="porteiro-active-call-card"
                   style={{
                     ...styles.activeCallCard,
                     ...(isFirst
@@ -348,6 +406,7 @@ export default function Porteiro() {
                     </div>
                   </div>
                   <button
+                    className="porteiro-confirm-button"
                     style={styles.confirmButton}
                     onClick={() => confirmarSaida(call.id)}
                     disabled={loading}
