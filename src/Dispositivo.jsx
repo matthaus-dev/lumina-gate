@@ -3,41 +3,6 @@ import React, { useEffect, useState } from "react";
 import { db } from "./firebase";
 import { collection, onSnapshot, query, where, getDocs } from "firebase/firestore";
 
-const dispositivoMediaQueries = `
-  @media (max-width: 768px) {
-    .dispositivo-container {
-      padding: 12px !important;
-    }
-    .dispositivo-header {
-      font-size: 18px !important;
-      margin-bottom: 16px !important;
-    }
-    .dispositivo-status-container {
-      padding: 16px !important;
-      margin-bottom: 20px !important;
-    }
-    .dispositivo-status-text {
-      font-size: 14px !important;
-    }
-    .dispositivo-section {
-      margin-bottom: 24px !important;
-    }
-    .dispositivo-section-title {
-      font-size: 16px !important;
-      margin-bottom: 12px !important;
-    }
-    .dispositivo-call-card {
-      flex-direction: column !important;
-      align-items: flex-start !important;
-      gap: 12px !important;
-      padding: 12px !important;
-    }
-    .dispositivo-call-info {
-      width: 100% !important;
-    }
-  }
-`;
-
 const styles = {
   container: {
     padding: 20,
@@ -243,7 +208,6 @@ export default function Dispositivo() {
   return (
     <div style={styles.container} className="dispositivo-container">
       <style>{keyframes}</style>
-      <style>{dispositivoMediaQueries}</style>
 
       <h2 style={styles.header} className="dispositivo-header">🔊 Dispositivo - Fila de Chamadas</h2>
 
