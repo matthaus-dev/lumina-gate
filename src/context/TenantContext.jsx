@@ -15,6 +15,11 @@ export function TenantProvider({ children, tenantId }) {
     return stored || (import.meta.env.VITE_API_URL || 'http://localhost:3000/api');
   });
 
+  const [user, setUserState] = useState(() => {
+    const stored = localStorage.getItem('user');
+    return stored ? JSON.parse(stored) : null;
+  });
+
   // Persist to localStorage when values change
   useEffect(() => {
     localStorage.setItem('dataSource', dataSource);
@@ -23,6 +28,12 @@ export function TenantProvider({ children, tenantId }) {
   useEffect(() => {
     localStorage.setItem('apiUrl', apiUrl);
   }, [apiUrl]);
+
+  useEffect(() => {
+    if (user) {
+      localStorage.setItem('user', JSON.stringify(user));
+    }
+  }, [user]);
 
   const setDataSource = (type, baseUrl) => {
     setDataSourceState(type);
@@ -35,6 +46,16 @@ export function TenantProvider({ children, tenantId }) {
     setApiUrlState(url);
   };
 
+  const setUser = (userData) => {
+    setUserState(userData);
+  };
+
+  const logout = () => {
+    setUserState(null);
+    localStorage.removeItem('user');
+    localStorage.removeItem('tenant');
+  };
+
   return (
     <TenantContext.Provider
       value={{
@@ -43,6 +64,9 @@ export function TenantProvider({ children, tenantId }) {
         apiUrl,
         setDataSource,
         setApiUrl,
+        user,
+        setUser,
+        logout,
       }}
     >
       {children}
@@ -68,5 +92,22 @@ export function useDataSourceConfig() {
     apiUrl: context.apiUrl,
     setDataSource: context.setDataSource,
     setApiUrl: context.setApiUrl,
+  };
+}
+
+export function useUser() {
+  const context = useContext(TenantContext);
+  // Return default values if not in TenantProvider
+  if (!context) {
+    return {
+      user: null,
+      setUser: () => {},
+      logout: () => {},
+    };
+  }
+  return {
+    user: context.user,
+    setUser: context.setUser,
+    logout: context.logout,
   };
 }

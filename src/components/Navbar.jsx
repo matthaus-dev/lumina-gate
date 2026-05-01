@@ -1,13 +1,29 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useTenant } from '../context/TenantContext';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useTenant, useUser } from '../context/TenantContext';
 import { getDataSource } from '../services/dataSource';
 
 export default function Navbar() {
   const tenantId = useTenant();
   const navigate = useNavigate();
+  const location = useLocation();
+  const { logout, user } = useUser();
   const [tenantName, setTenantName] = useState(tenantId);
   const [activeLink, setActiveLink] = useState('alunos');
+
+  // Update activeLink based on current location
+  useEffect(() => {
+    const pathSegments = location.pathname.split('/').filter(Boolean);
+    if (pathSegments.length >= 2) {
+      const currentPath = pathSegments[1]; // Get the second segment (after tenantId)
+      setActiveLink(currentPath);
+    }
+  }, [location.pathname]);
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   useEffect(() => {
     const loadTenantName = async () => {
@@ -53,7 +69,7 @@ export default function Navbar() {
           </div>
 
           {/* Right: Navigation Links */}
-          <nav className="flex gap-1">
+          <nav className="flex gap-1 items-center">
             {navItems.map(item => (
               <button
                 key={item.path}
@@ -68,6 +84,15 @@ export default function Navbar() {
                 {item.label}
               </button>
             ))}
+            
+            {/* Logout Button */}
+            <button
+              onClick={handleLogout}
+              className="ml-4 px-4 py-2 text-sm font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition"
+              title={user?.name ? `Logout - ${user.name}` : 'Logout'}
+            >
+              🚪 Sair
+            </button>
           </nav>
         </div>
 
@@ -99,6 +124,14 @@ export default function Navbar() {
               </button>
             ))}
           </nav>
+          
+          {/* Mobile Logout */}
+          <button
+            onClick={handleLogout}
+            className="w-full mt-2 py-2 text-xs font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition"
+          >
+            🚪 Sair
+          </button>
         </div>
       </div>
     </header>

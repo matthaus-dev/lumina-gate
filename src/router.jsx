@@ -1,17 +1,34 @@
 import React from 'react';
-import { createBrowserRouter, Navigate, useParams, Outlet } from 'react-router-dom';
+import { createBrowserRouter, Navigate, useParams, Outlet, useNavigate } from 'react-router-dom';
 import { TenantProvider } from './context/TenantContext';
-import Porteiro from './Porteiro';
-import Dispositivo from './Dispositivo';
+import Login from './pages/Login';
+import Dashboard from './pages/Dashboard';
 
 /**
- * Layout that extracts tenantId from URL and provides via TenantProvider
+ * Layout that checks authentication and extracts tenantId from URL
  */
-function TenantLayout() {
+function ProtectedTenantLayout() {
   const { tenantId } = useParams();
-  
-  if (!tenantId) {
-    return <Navigate to="/crianca-inteligente" replace />;
+  const navigate = useNavigate();
+  const [isAuthenticated, setIsAuthenticated] = React.useState(() => {
+    const tenant = localStorage.getItem('tenant');
+    const user = localStorage.getItem('user');
+    
+    if (tenant && user) {
+      const tenantData = JSON.parse(tenant);
+      return tenantData.slug === tenantId;
+    }
+    return false;
+  });
+
+  React.useEffect(() => {
+    if (!isAuthenticated) {
+      navigate('/login', { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
+
+  if (!isAuthenticated) {
+    return null; // Will redirect via navigate
   }
 
   return (
@@ -23,16 +40,20 @@ function TenantLayout() {
 
 export const router = createBrowserRouter([
   {
+    path: '/login',
+    element: <Login />,
+  },
+  {
     path: '/',
-    element: <Navigate to="/crianca-inteligente" replace />,
+    element: <Navigate to="/login" replace />,
   },
   {
     path: '/:tenantId',
-    element: <TenantLayout />,
+    element: <ProtectedTenantLayout />,
     children: [
       {
         index: true,
-        element: <Navigate to="alunos" replace />,
+        element: <Dashboard />,
       },
       {
         path: 'alunos',
