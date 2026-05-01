@@ -3,59 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { useTenant } from '../context/TenantContext';
 import { getDataSource } from '../services/dataSource';
 
-const styles = {
-  navbar: {
-    backgroundColor: '#0066cc',
-    color: 'white',
-    padding: '0 20px',
-    minHeight: '60px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-    position: 'sticky',
-    top: 0,
-    zIndex: 100,
-  },
-  left: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '30px',
-  },
-  brand: {
-    fontSize: '20px',
-    fontWeight: '700',
-    cursor: 'pointer',
-  },
-  tenantName: {
-    fontSize: '14px',
-    color: '#e0e0e0',
-  },
-  nav: {
-    display: 'flex',
-    gap: '20px',
-    alignItems: 'center',
-  },
-  navLink: {
-    color: 'white',
-    textDecoration: 'none',
-    padding: '10px 15px',
-    borderRadius: '4px',
-    cursor: 'pointer',
-    fontSize: '14px',
-    fontWeight: '500',
-    transition: 'background-color 0.2s',
-    border: 'none',
-    background: 'transparent',
-  },
-  navLinkActive: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-  },
-  navLinkHover: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-  },
-};
-
 export default function Navbar() {
   const tenantId = useTenant();
   const navigate = useNavigate();
@@ -63,12 +10,11 @@ export default function Navbar() {
   const [activeLink, setActiveLink] = useState('alunos');
 
   useEffect(() => {
-    // Load tenant settings to get the display name
     const loadTenantName = async () => {
       try {
         const dataSource = getDataSource();
         const settings = await dataSource.getSettings(tenantId);
-        if (settings.name) {
+        if (settings?.name) {
           setTenantName(settings.name);
         }
       } catch (error) {
@@ -84,76 +30,77 @@ export default function Navbar() {
     navigate(`/${tenantId}/${path}`);
   };
 
+  const navItems = [
+    { path: 'alunos', label: 'Alunos', icon: '👥' },
+    { path: 'turmas', label: 'Turmas', icon: '📚' },
+    { path: 'porteiro', label: 'Porteiro', icon: '📞' },
+    { path: 'display', label: 'Display', icon: '📺' },
+    { path: 'configuracoes', label: 'Configurações', icon: '⚙️' },
+  ];
+
   return (
-    <nav style={styles.navbar}>
-      <div style={styles.left}>
-        <div style={styles.brand} onClick={() => handleNavigate('alunos')}>
-          🎓 Chamada
+    <header className="sticky top-0 z-50 w-full bg-white border-b border-gray-200 shadow-sm">
+      <div className="max-w-7xl mx-auto px-4">
+        {/* Desktop Navigation */}
+        <div className="hidden md:flex items-center justify-between h-20">
+          {/* Left: Brand */}
+          <div className="flex items-center gap-4 cursor-pointer" onClick={() => handleNavigate('alunos')}>
+            <div className="text-3xl font-bold text-azul-principal">🎓</div>
+            <div>
+              <h1 className="text-lg font-bold text-azul-principal leading-tight">Chamada</h1>
+              <p className="text-xs text-gray-500">{tenantName}</p>
+            </div>
+          </div>
+
+          {/* Right: Navigation Links */}
+          <nav className="flex gap-1">
+            {navItems.map(item => (
+              <button
+                key={item.path}
+                onClick={() => handleNavigate(item.path)}
+                className={`px-4 py-2 text-sm font-medium rounded-lg transition ${
+                  activeLink === item.path
+                    ? 'text-azul-principal bg-azul-claro'
+                    : 'text-gray-700 hover:text-azul-principal hover:bg-azul-claro'
+                }`}
+              >
+                <span className="mr-1">{item.icon}</span>
+                {item.label}
+              </button>
+            ))}
+          </nav>
         </div>
-        <div style={styles.tenantName}>{tenantName}</div>
+
+        {/* Mobile Navigation */}
+        <div className="md:hidden py-3">
+          {/* Brand */}
+          <div className="flex items-center gap-2 mb-4 cursor-pointer" onClick={() => handleNavigate('alunos')}>
+            <div className="text-2xl">🎓</div>
+            <div>
+              <h1 className="text-base font-bold text-azul-principal leading-tight">Chamada</h1>
+              <p className="text-xs text-gray-500">{tenantName}</p>
+            </div>
+          </div>
+
+          {/* Mobile Menu */}
+          <nav className="grid grid-cols-5 gap-1">
+            {navItems.map(item => (
+              <button
+                key={item.path}
+                onClick={() => handleNavigate(item.path)}
+                className={`py-2 text-xs font-medium rounded-lg transition text-center ${
+                  activeLink === item.path
+                    ? 'text-azul-principal bg-azul-claro'
+                    : 'text-gray-700 hover:text-azul-principal hover:bg-azul-claro'
+                }`}
+              >
+                <div className="text-lg mb-1">{item.icon}</div>
+                <div className="line-clamp-1">{item.label}</div>
+              </button>
+            ))}
+          </nav>
+        </div>
       </div>
-
-      <div style={styles.nav}>
-        <button
-          style={{
-            ...styles.navLink,
-            ...(activeLink === 'alunos' ? styles.navLinkActive : {}),
-          }}
-          onClick={() => handleNavigate('alunos')}
-          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)'}
-          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = activeLink === 'alunos' ? 'rgba(255, 255, 255, 0.2)' : 'transparent'}
-        >
-          👥 Alunos
-        </button>
-
-        <button
-          style={{
-            ...styles.navLink,
-            ...(activeLink === 'turmas' ? styles.navLinkActive : {}),
-          }}
-          onClick={() => handleNavigate('turmas')}
-          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)'}
-          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = activeLink === 'turmas' ? 'rgba(255, 255, 255, 0.2)' : 'transparent'}
-        >
-          📚 Turmas
-        </button>
-
-        <button
-          style={{
-            ...styles.navLink,
-            ...(activeLink === 'porteiro' ? styles.navLinkActive : {}),
-          }}
-          onClick={() => handleNavigate('porteiro')}
-          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)'}
-          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = activeLink === 'porteiro' ? 'rgba(255, 255, 255, 0.2)' : 'transparent'}
-        >
-          📞 Porteiro
-        </button>
-
-        <button
-          style={{
-            ...styles.navLink,
-            ...(activeLink === 'dispositivo' ? styles.navLinkActive : {}),
-          }}
-          onClick={() => handleNavigate('dispositivo')}
-          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)'}
-          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = activeLink === 'dispositivo' ? 'rgba(255, 255, 255, 0.2)' : 'transparent'}
-        >
-          📺 Display
-        </button>
-
-        <button
-          style={{
-            ...styles.navLink,
-            ...(activeLink === 'configuracoes' ? styles.navLinkActive : {}),
-          }}
-          onClick={() => handleNavigate('configuracoes')}
-          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)'}
-          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = activeLink === 'configuracoes' ? 'rgba(255, 255, 255, 0.2)' : 'transparent'}
-        >
-          ⚙️ Configurações
-        </button>
-      </div>
-    </nav>
+    </header>
   );
 }

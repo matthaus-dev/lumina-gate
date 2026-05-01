@@ -1,273 +1,171 @@
-
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTenant } from './context/TenantContext';
 import { getDataSource } from './services/dataSource';
 import Navbar from './components/Navbar';
 
-const styles = {
-  container: {
-    minHeight: '100vh',
-    backgroundColor: '#f5f5f5',
-  },
-  content: {
-    maxWidth: '800px',
-    margin: '0 auto',
-    padding: '30px 20px',
-  },
-  header: {
-    color: '#1a1a1a',
-    marginBottom: '20px',
-    fontSize: '28px',
-    fontWeight: '700',
-  },
-  statusContainer: {
-    padding: '20px',
-    backgroundColor: '#e8f5e9',
-    border: '2px solid #4caf50',
-    borderRadius: '8px',
-    marginBottom: '30px',
-    textAlign: 'center',
-  },
-  statusText: {
-    fontSize: '16px',
-    fontWeight: '600',
-    color: '#2e7d32',
-  },
-  callsList: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '15px',
-  },
-  callCard: {
-    padding: '15px',
-    border: '2px solid #ddd',
-    borderRadius: '8px',
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    transition: 'all 0.3s ease',
-  },
-  callInfo: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '5px',
-    flex: 1,
-  },
-  callStatus: {
-    fontSize: '12px',
-    color: '#fff',
-    fontStyle: 'italic',
-    fontWeight: '600',
-    animation: 'pulse 1.5s infinite',
-  },
-  emptyMessage: {
-    textAlign: 'center',
-    color: '#999',
-    fontStyle: 'italic',
-    fontSize: '16px',
-    padding: '40px',
-  },
-};
-
-const keyframes = `
-  @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.7; }
-  }
-`;
-
 export default function Dispositivo() {
   const tenantId = useTenant();
-  const [allCalls, setAllCalls] = useState([]);
-  const [currentCallIndex, setCurrentCallIndex] = useState(0);
-  const [callingInterval, setCallingInterval] = useState(null);
+  const [currentCall, setCurrentCall] = useState(null);
+  const [activeCalls, setActiveCalls] = useState([]);
+  const [callIndex, setCallIndex] = useState(0);
 
   const dataSource = getDataSource();
 
-  // Setup listener for calls
+  // Listener for active calls
   useEffect(() => {
-    console.log('[Dispositivo] Iniciando listener de fila...');
-
     const unsubscribe = dataSource.onSnapshotCalls(tenantId, (calls) => {
-      console.log(`[Dispositivo] 🔄 Fila atualizada - ${calls.length} chamadas pendentes`);
-      
-      // Sort by createdAt (oldest first)
-      const sortedCalls = [...calls].sort((a, b) => {
-        const timeA = a.createdAt?.toMillis?.() || a.createdAt || 0;
-        const timeB = b.createdAt?.toMillis?.() || b.createdAt || 0;
-        return timeA - timeB;
-      });
-
-      sortedCalls.forEach((call, idx) => {
-        console.log(`  [${idx}] ${call.studentName} - ${call.id}`);
-      });
-
-      setAllCalls(sortedCalls);
-
-      // Reset index if queue is empty or index out of range
-      if (sortedCalls.length === 0) {
-        console.log('[Dispositivo] ✓ Fila vazia');
-        setCurrentCallIndex(0);
-      } else if (currentCallIndex >= sortedCalls.length) {
-        console.log('[Dispositivo] 🔄 Índice resetado para 0');
-        setCurrentCallIndex(0);
-      }
+      console.log('[Dispositivo] Chamadas atualizadas:', calls);
+      setActiveCalls(calls || []);
     });
 
     return () => {
-      console.log('[Dispositivo] 🛑 Desmontando listener');
       if (typeof unsubscribe === 'function') {
         unsubscribe();
       }
     };
   }, [tenantId]);
 
-  // Manage TTS: call each student in sequence
+  // Update current call every 7 seconds
   useEffect(() => {
-    if (allCalls.length === 0) {
-      if (callingInterval) {
-        clearInterval(callingInterval);
-        setCallingInterval(null);
-      }
+    if (activeCalls.length === 0) {
+      setCurrentCall(null);
+      setCallIndex(0);
       return;
     }
 
-    const currentCall = allCalls[currentCallIndex];
-    if (!currentCall) return;
+    setCurrentCall(activeCalls[callIndex]);
 
-    console.log(`[Dispositivo] 🔊 Chamando: ${currentCall.studentName} (${currentCallIndex + 1}/${allCalls.length})`);
-
-    // Call immediately
-    speakCall(currentCall);
-
-    // Every 7 seconds, move to next student
     const interval = setInterval(() => {
-      setCurrentCallIndex((prevIdx) => {
-        const nextIdx = (prevIdx + 1) % allCalls.length;
-        const nextCall = allCalls[nextIdx];
-        console.log(`[Dispositivo] 🔊 Próximo aluno: ${nextCall.studentName} (${nextIdx + 1}/${allCalls.length})`);
-        speakCall(nextCall);
-        return nextIdx;
-      });
+      setCallIndex(prev => (prev + 1) % activeCalls.length);
     }, 7000);
 
-    setCallingInterval(interval);
+    return () => clearInterval(interval);
+  }, [activeCalls, callIndex]);
 
-    return () => {
-      clearInterval(interval);
-    };
-  }, [allCalls, currentCallIndex]);
+  // Speak current call name
+  useEffect(() => {
+    if (currentCall?.studentName) {
+      console.log(`[Dispositivo] Anunciando: ${currentCall.studentName}`);
 
-  const speakCall = (call) => {
-    const message = `${call.studentName}, turma ${call.studentClass}`;
-    const utterance = new SpeechSynthesisUtterance(message);
+      const synthesis = window.speechSynthesis;
+      if (synthesis) {
+        synthesis.cancel();
 
-    utterance.lang = 'pt-BR';
-    utterance.rate = 0.9;
-    utterance.pitch = 1;
-    utterance.volume = 1;
+        const utterance = new SpeechSynthesisUtterance(
+          `Aluno ${currentCall.studentName}, da turma ${currentCall.studentClass}.`
+        );
+        utterance.lang = 'pt-BR';
+        utterance.rate = 0.9;
 
-    // Try to find Daniel voice
-    const voices = speechSynthesis.getVoices();
-    const danielVoice = voices.find(v => v.name.includes('Daniel') && v.lang.startsWith('pt'));
+        // Find Daniel voice if available
+        const voices = synthesis.getVoices();
+        const danielVoice = voices.find(
+          v => v.name.includes('Daniel') || v.lang.includes('pt-BR')
+        );
+        if (danielVoice) {
+          utterance.voice = danielVoice;
+        }
 
-    if (danielVoice) {
-      utterance.voice = danielVoice;
+        synthesis.speak(utterance);
+      }
     }
-
-    speechSynthesis.cancel();
-    speechSynthesis.speak(utterance);
-
-    console.log(`[TTS] ${message}`);
-  };
+  }, [currentCall]);
 
   return (
-    <div style={styles.container}>
+    <div className="min-h-screen bg-gradient-to-br from-azul-principal to-azul-hover">
       <Navbar />
-      <style>{keyframes}</style>
 
-      <div style={styles.content}>
-        <h2 style={styles.header}>🔊 Dispositivo - Fila de Chamadas</h2>
-
-        <div style={styles.statusContainer}>
-          <p style={styles.statusText}>
-            {allCalls.length === 0
-              ? '✓ Nenhuma chamada. Aguardando...'
-              : `🔴 ${allCalls.length} aluno(s) na fila - Chamando...`}
-          </p>
-        </div>
-
-        {allCalls.length === 0 ? (
-          <p style={styles.emptyMessage}>Nenhuma chamada no momento. Aguardando...</p>
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        {!currentCall ? (
+          <div className="h-[60vh] flex flex-col items-center justify-center text-center">
+            <div className="text-9xl mb-8 animate-pulse">📺</div>
+            <h1 className="text-5xl font-bold text-white mb-4">Aguardando Chamadas</h1>
+            <p className="text-2xl text-blue-100">
+              {activeCalls.length === 0
+                ? 'Nenhuma chamada pendente'
+                : 'Preparando próximo aluno...'}
+            </p>
+          </div>
         ) : (
-          <div style={styles.callsList}>
-            {allCalls.map((call, idx) => {
-              const isCurrentCall = idx === currentCallIndex;
-              return (
-                <div
-                  key={call.id}
-                  style={{
-                    ...styles.callCard,
-                    ...(isCurrentCall
-                      ? {
-                          backgroundColor: '#ff6b6b',
-                          borderColor: '#d63031',
-                          boxShadow: '0 0 20px rgba(214, 48, 49, 0.5)',
-                        }
-                      : {
-                          backgroundColor: '#e8e8e8',
-                          opacity: 0.6,
-                        }),
-                  }}
-                >
-                  <div style={styles.callInfo}>
+          <div className="min-h-[60vh] flex flex-col items-center justify-center">
+            {/* Current Call Card */}
+            <div className="bg-white rounded-2xl shadow-2xl p-12 max-w-2xl w-full mb-12 border-l-8 border-verde-principal animate-bounce">
+              <p className="text-center text-gray-600 text-xl mb-6">👇 PRÓXIMO ALUNO 👇</p>
+
+              <h2 className="text-center text-6xl font-bold text-azul-principal mb-6">
+                {currentCall.studentName}
+              </h2>
+
+              <div className="bg-azul-claro rounded-xl p-8 mb-8">
+                <p className="text-center text-xl text-azul-principal font-bold">
+                  Turma: {currentCall.studentClass}
+                </p>
+              </div>
+
+              <div className="text-center">
+                <p className="text-gray-600 text-lg">
+                  {callIndex + 1} de {activeCalls.length}
+                </p>
+                <div className="mt-4 flex gap-2 justify-center">
+                  {activeCalls.map((_, idx) => (
                     <div
-                      style={{
-                        display: 'flex',
-                        gap: '15px',
-                        alignItems: 'center',
-                      }}
-                    >
-                      <div
-                        style={{
-                          fontSize: '24px',
-                          fontWeight: '700',
-                          backgroundColor: isCurrentCall ? '#d63031' : '#999',
-                          color: 'white',
-                          width: '50px',
-                          height: '50px',
-                          borderRadius: '50%',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                        }}
-                      >
-                        {idx + 1}
-                      </div>
-                      <div>
-                        <div
-                          style={{
-                            fontSize: isCurrentCall ? '24px' : '16px',
-                            fontWeight: '700',
-                            color: isCurrentCall ? '#d63031' : '#333',
-                          }}
-                        >
-                          {call.studentName}
-                        </div>
-                        <div style={{ fontSize: '14px', color: isCurrentCall ? '#a93030' : '#666' }}>
-                          Turma: {call.studentClass}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  {isCurrentCall && (
-                    <div style={styles.callStatus}>🔊 Chamando...</div>
-                  )}
+                      key={idx}
+                      className={`h-3 rounded-full transition ${
+                        idx === callIndex
+                          ? 'w-8 bg-verde-principal'
+                          : 'w-3 bg-gray-300'
+                      }`}
+                    ></div>
+                  ))}
                 </div>
-              );
-            })}
+              </div>
+            </div>
+
+            {/* Queue List */}
+            {activeCalls.length > 1 && (
+              <div className="w-full max-w-2xl">
+                <h3 className="text-2xl font-bold text-white mb-6 text-center">
+                  Próximas Chamadas
+                </h3>
+                <div className="space-y-3">
+                  {activeCalls
+                    .slice(callIndex + 1)
+                    .concat(activeCalls.slice(0, callIndex))
+                    .map((call, idx) => (
+                      <div
+                        key={call.id}
+                        className="bg-white bg-opacity-20 backdrop-blur-sm rounded-lg p-4 flex items-center gap-4 border border-white border-opacity-30"
+                      >
+                        <div className="text-4xl flex-shrink-0">
+                          {idx + 2}
+                        </div>
+                        <div className="flex-grow">
+                          <p className="text-white font-bold text-lg">
+                            {call.studentName}
+                          </p>
+                          <p className="text-blue-100 text-sm">
+                            Turma: {call.studentClass}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
+      </div>
+
+      {/* Footer Stats */}
+      <div className="fixed bottom-0 left-0 right-0 bg-black bg-opacity-40 backdrop-blur-sm border-t border-white border-opacity-20">
+        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+          <p className="text-white text-lg font-semibold">
+            Total na Fila: <span className="text-verde-principal">{activeCalls.length}</span>
+          </p>
+          <p className="text-white text-lg font-semibold">
+            Hora: <span className="text-verde-principal">{new Date().toLocaleTimeString('pt-BR')}</span>
+          </p>
+        </div>
       </div>
     </div>
   );

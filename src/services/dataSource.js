@@ -177,18 +177,62 @@ const firestoreAdapter = {
 };
 
 /**
+ * Helper function to extract array from various API response formats
+ */
+function extractArray(data) {
+  if (Array.isArray(data)) {
+    return data;
+  }
+  if (data && typeof data === 'object') {
+    // Try common wrapping patterns
+    if (Array.isArray(data.data)) return data.data;
+    if (Array.isArray(data.items)) return data.items;
+    if (Array.isArray(data.results)) return data.results;
+    if (Array.isArray(data.students)) return data.students;
+    if (Array.isArray(data.classes)) return data.classes;
+    if (Array.isArray(data.calls)) return data.calls;
+  }
+  console.warn('Unexpected API response format:', data);
+  return [];
+}
+
+/**
+ * Normalize student data to ensure turmaId is set
+ * API returns "turma" as the name, we normalize to turmaId for compatibility
+ */
+function normalizeStudentData(students) {
+  return students.map(student => ({
+    ...student,
+    // If API returns "turma" as name, keep it as turmaName for display
+    turmaName: student.turma || student.turmaName,
+    // If no turmaId, use turma as turmaId (for API compatibility)
+    turmaId: student.turmaId || student.turma,
+  }));
+}
+
+/**
  * API adapter implementation
  */
 const apiAdapter = {
   // Students
   async getStudents(tenantId) {
-    const response = await fetch(`${API_URL}/${tenantId}/students`);
-    if (!response.ok) throw new Error(`Failed to fetch students: ${response.status}`);
-    return response.json();
+    const url = `${API_URL}/${tenantId}/students`;
+    console.log('[DataSource] Fetching students from:', url);
+    const response = await fetch(url);
+    if (!response.ok) {
+      console.error('[DataSource] API Error:', response.status, response.statusText);
+      throw new Error(`Failed to fetch students: ${response.status}`);
+    }
+    const data = await response.json();
+    console.log('[DataSource] Students response:', data);
+    const students = extractArray(data);
+    return normalizeStudentData(students);
   },
 
   async createStudent(tenantId, data) {
-    const response = await fetch(`${API_URL}/${tenantId}/students`, {
+    const url = `${API_URL}/${tenantId}/students`;
+    console.log('[DataSource] Creating student at:', url, data);
+    const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -198,7 +242,9 @@ const apiAdapter = {
   },
 
   async updateStudent(tenantId, studentId, data) {
-    const response = await fetch(`${API_URL}/${tenantId}/students/${studentId}`, {
+    const url = `${API_URL}/${tenantId}/students/${studentId}`;
+    console.log('[DataSource] Updating student at:', url, data);
+    const response = await fetch(url, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -208,7 +254,9 @@ const apiAdapter = {
   },
 
   async deleteStudent(tenantId, studentId) {
-    const response = await fetch(`${API_URL}/${tenantId}/students/${studentId}`, {
+    const url = `${API_URL}/${tenantId}/students/${studentId}`;
+    console.log('[DataSource] Deleting student at:', url);
+    const response = await fetch(url, {
       method: 'DELETE',
     });
     if (!response.ok) throw new Error(`Failed to delete student: ${response.status}`);
@@ -217,9 +265,16 @@ const apiAdapter = {
 
   // Classes
   async getClasses(tenantId) {
-    const response = await fetch(`${API_URL}/${tenantId}/classes`);
-    if (!response.ok) throw new Error(`Failed to fetch classes: ${response.status}`);
-    return response.json();
+    const url = `${API_URL}/${tenantId}/classes`;
+    console.log('[DataSource] Fetching classes from:', url);
+    const response = await fetch(url);
+    if (!response.ok) {
+      console.error('[DataSource] API Error:', response.status, response.statusText);
+      throw new Error(`Failed to fetch classes: ${response.status}`);
+    }
+    const data = await response.json();
+    console.log('[DataSource] Classes response:', data);
+    return extractArray(data);
   },
 
   async createClass(tenantId, data) {
@@ -271,63 +326,41 @@ const apiAdapter = {
   async getCalls(tenantId) {
     const response = await fetch(`${API_URL}/${tenantId}/calls`);
     if (!response.ok) throw new Error(`Failed to fetch calls: ${response.status}`);
-    return response.json();
+    const data = await response.json();
+    return extractArray(data);
   },
 
-  async createCall(tenantId, data) {
-    const response = await fetch(`${API_URL}/${tenantId}/calls`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-    if (!response.ok) throw new Error(`Failed to create call: ${response.status}`);
-    return response.json();
-  },
-
-  async updateCall(tenantId, callId, data) {
-    const response = await fetch(`${API_URL}/${tenantId}/calls/${callId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-    if (!response.ok) throw new Error(`Failed to update call: ${response.status}`);
-    return response.json();
-  },
-
-  async deleteCall(tenantId, callId) {
-    const response = await fetch(`${API_URL}/${tenantId}/calls/${callId}`, {
-      method: 'DELETE',
-    });
-    if (!response.ok) throw new Error(`Failed to delete call: ${response.status}`);
-    return true;
-  },
-
+  // NOTE: Calls are ALWAYS handled by Firestore, never by API
+  // See the factory function below which merges Firestore call methods
+  
   onSnapshotStudents(tenantId, callback) {
-    // Polling fallback for API (real-time not supported)
+    // Polling fallback for API (real-time not supported for students)
     this.getStudents(tenantId).then(callback);
     const interval = setInterval(() => {
       this.getStudents(tenantId).then(callback);
     }, 3000); // Poll every 3s
     return () => clearInterval(interval);
   },
-
-  onSnapshotCalls(tenantId, callback) {
-    // Polling fallback for API (real-time not supported)
-    this.getCalls(tenantId).then(callback);
-    const interval = setInterval(() => {
-      this.getCalls(tenantId).then(callback);
-    }, 2000); // Poll every 2s
-    return () => clearInterval(interval);
-  },
 };
 
 /**
  * Factory function to get the appropriate data source adapter
+ * NOTE: Calls (createCall, updateCall, deleteCall, onSnapshotCalls) ALWAYS use Firestore for real-time updates
+ * Only students/classes/settings can alternate between API and Firestore
  */
 export function getDataSource() {
   if (DATA_SOURCE === 'api') {
-    console.log('[DataSource] Using API adapter:', API_URL);
-    return apiAdapter;
+    console.log('[DataSource] Using API adapter for students/classes:', API_URL);
+    console.log('[DataSource] Using Firestore adapter for calls (real-time)');
+    // Merge API adapter with Firestore call methods
+    return {
+      ...apiAdapter,
+      // Override call methods to always use Firestore
+      createCall: firestoreAdapter.createCall.bind(firestoreAdapter),
+      updateCall: firestoreAdapter.updateCall.bind(firestoreAdapter),
+      deleteCall: firestoreAdapter.deleteCall.bind(firestoreAdapter),
+      onSnapshotCalls: firestoreAdapter.onSnapshotCalls.bind(firestoreAdapter),
+    };
   } else {
     console.log('[DataSource] Using Firestore adapter');
     return firestoreAdapter;
@@ -336,4 +369,11 @@ export function getDataSource() {
 
 export function getDataSourceType() {
   return DATA_SOURCE;
+}
+
+/**
+ * Check if using API data source
+ */
+export function isApiDataSource() {
+  return DATA_SOURCE === 'api';
 }

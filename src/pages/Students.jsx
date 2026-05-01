@@ -1,167 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTenant } from '../context/TenantContext';
-import { getDataSource } from '../services/dataSource';
+import { getDataSource, isApiDataSource } from '../services/dataSource';
 import Navbar from '../components/Navbar';
-
-const styles = {
-  container: {
-    minHeight: '100vh',
-    backgroundColor: '#f5f5f5',
-  },
-  content: {
-    maxWidth: '1200px',
-    margin: '0 auto',
-    padding: '30px 20px',
-  },
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '30px',
-  },
-  title: {
-    fontSize: '28px',
-    fontWeight: '700',
-    color: '#1a1a1a',
-    margin: 0,
-  },
-  addButton: {
-    backgroundColor: '#28a745',
-    color: 'white',
-    border: 'none',
-    padding: '12px 24px',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    fontSize: '16px',
-    fontWeight: '600',
-    transition: 'background-color 0.2s',
-  },
-  table: {
-    width: '100%',
-    borderCollapse: 'collapse',
-    backgroundColor: 'white',
-    borderRadius: '8px',
-    overflow: 'hidden',
-    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-  },
-  th: {
-    backgroundColor: '#f0f0f0',
-    padding: '15px',
-    textAlign: 'left',
-    fontWeight: '600',
-    color: '#333',
-    borderBottom: '2px solid #ddd',
-  },
-  td: {
-    padding: '15px',
-    borderBottom: '1px solid #ddd',
-    color: '#666',
-  },
-  trHover: {
-    backgroundColor: '#f9f9f9',
-  },
-  actions: {
-    display: 'flex',
-    gap: '10px',
-  },
-  editButton: {
-    backgroundColor: '#0066cc',
-    color: 'white',
-    border: 'none',
-    padding: '6px 12px',
-    borderRadius: '4px',
-    cursor: 'pointer',
-    fontSize: '14px',
-    transition: 'background-color 0.2s',
-  },
-  deleteButton: {
-    backgroundColor: '#dc3545',
-    color: 'white',
-    border: 'none',
-    padding: '6px 12px',
-    borderRadius: '4px',
-    cursor: 'pointer',
-    fontSize: '14px',
-    transition: 'background-color 0.2s',
-  },
-  modal: {
-    display: 'none',
-    position: 'fixed',
-    zIndex: '1000',
-    left: 0,
-    top: 0,
-    width: '100%',
-    height: '100%',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalVisible: {
-    display: 'flex',
-  },
-  modalContent: {
-    backgroundColor: 'white',
-    padding: '30px',
-    borderRadius: '8px',
-    boxShadow: '0 4px 16px rgba(0, 0, 0, 0.2)',
-    width: '90%',
-    maxWidth: '400px',
-  },
-  formGroup: {
-    marginBottom: '20px',
-  },
-  label: {
-    display: 'block',
-    marginBottom: '8px',
-    fontWeight: '600',
-    color: '#333',
-  },
-  input: {
-    width: '100%',
-    padding: '10px',
-    border: '1px solid #ddd',
-    borderRadius: '4px',
-    fontSize: '14px',
-    boxSizing: 'border-box',
-  },
-  buttonGroup: {
-    display: 'flex',
-    gap: '10px',
-    justifyContent: 'flex-end',
-  },
-  submitButton: {
-    backgroundColor: '#28a745',
-    color: 'white',
-    border: 'none',
-    padding: '10px 20px',
-    borderRadius: '4px',
-    cursor: 'pointer',
-    fontSize: '16px',
-    fontWeight: '600',
-    transition: 'background-color 0.2s',
-  },
-  cancelButton: {
-    backgroundColor: '#6c757d',
-    color: 'white',
-    border: 'none',
-    padding: '10px 20px',
-    borderRadius: '4px',
-    cursor: 'pointer',
-    fontSize: '16px',
-    fontWeight: '600',
-    transition: 'background-color 0.2s',
-  },
-  emptyState: {
-    textAlign: 'center',
-    padding: '60px 20px',
-    color: '#999',
-  },
-  loader: {
-    textAlign: 'center',
-    padding: '40px',
-    color: '#666',
-  },
-};
 
 export default function Students() {
   const tenantId = useTenant();
@@ -175,8 +15,9 @@ export default function Students() {
   const [success, setSuccess] = useState(null);
 
   const dataSource = getDataSource();
+  const isUsingAPI = isApiDataSource();
 
-  // Load students
+  // Load students and classes on mount
   useEffect(() => {
     loadStudents();
     loadClasses();
@@ -185,9 +26,11 @@ export default function Students() {
   const loadClasses = async () => {
     try {
       const data = await dataSource.getClasses(tenantId);
-      setClasses(data || []);
+      console.log('[Students] Classes loaded:', data);
+      setClasses(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('[Students] Error loading classes:', err);
+      setClasses([]);
     }
   };
 
@@ -196,7 +39,8 @@ export default function Students() {
       setLoading(true);
       setError(null);
       const data = await dataSource.getStudents(tenantId);
-      setStudents(data || []);
+      console.log('[Students] Students loaded:', data);      
+      setStudents(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('[Students] Error loading students:', err);
       setError('Erro ao carregar alunos: ' + err.message);
@@ -272,143 +116,162 @@ export default function Students() {
   };
 
   return (
-    <div style={styles.container}>
+    <div className="min-h-screen bg-gray-50">
       <Navbar />
-      <div style={styles.content}>
-        <div style={styles.header}>
-          <h1 style={styles.title}>👥 Gerenciar Alunos</h1>
-          <button
-            style={styles.addButton}
-            onClick={() => handleOpenModal()}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#218838'}
-            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#28a745'}
-          >
-            + Adicionar Aluno
-          </button>
+      <div className="max-w-7xl mx-auto px-4 py-12">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-12">
+          <div>
+            <h1 className="text-4xl font-bold text-azul-principal mb-2">👥 Gerenciar Alunos</h1>
+            <p className="text-gray-600">Cadastre e gerencie os alunos da instituição</p>
+          </div>
+          {!isUsingAPI && (
+            <button
+              onClick={() => handleOpenModal()}
+              className="mt-4 md:mt-0 bg-verde-principal hover:bg-verde-hover text-white px-6 py-3 rounded-lg font-bold transition"
+            >
+              + Adicionar Aluno
+            </button>
+          )}
         </div>
 
+        {/* Error Message */}
         {error && (
-          <div style={{ backgroundColor: '#f8d7da', color: '#721c24', padding: '15px', borderRadius: '4px', marginBottom: '20px' }}>
+          <div className="mb-6 p-4 bg-red-100 border-l-4 border-red-500 text-red-700 rounded-lg">
             {error}
           </div>
         )}
 
+        {/* Success Message */}
         {success && (
-          <div style={{ backgroundColor: '#d4edda', color: '#155724', padding: '15px', borderRadius: '4px', marginBottom: '20px' }}>
+          <div className="mb-6 p-4 bg-verde-claro border-l-4 border-verde-principal text-verde-secundaria rounded-lg">
             {success}
           </div>
         )}
 
+        {/* Content */}
         {loading ? (
-          <div style={styles.loader}>Carregando alunos...</div>
+          <div className="text-center py-12 text-gray-600">
+            <div className="inline-block animate-spin">
+              <div className="border-4 border-gray-300 border-t-azul-principal rounded-full w-12 h-12"></div>
+            </div>
+            <p className="mt-4">Carregando alunos...</p>
+          </div>
         ) : students.length === 0 ? (
-          <div style={styles.emptyState}>
-            <p>Nenhum aluno cadastrado ainda.</p>
-            <p>Clique no botão "Adicionar Aluno" para começar.</p>
+          <div className="bg-white rounded-lg shadow-sm p-12 text-center border-l-4 border-azul-principal">
+            <p className="text-gray-600 mb-4">Nenhum aluno cadastrado ainda.</p>
+            <p className="text-gray-500">Clique no botão "Adicionar Aluno" para começar.</p>
           </div>
         ) : (
-          <table style={styles.table}>
-            <thead>
-              <tr>
-                <th style={styles.th}>Nome</th>
-                <th style={styles.th}>Turma</th>
-                <th style={styles.th}>Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {students.map((student) => (
-                <tr key={student.id} style={{ cursor: 'pointer' }}>
-                  <td style={styles.td}>{student.nome}</td>
-                  <td style={styles.td}>
-                    {student.turmaId
-                      ? classes.find(c => c.id === student.turmaId)?.nome || '-'
-                      : '-'}
-                  </td>
-                  <td style={styles.td}>
-                    <div style={styles.actions}>
-                      <button
-                        style={styles.editButton}
-                        onClick={() => handleOpenModal(student)}
-                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#0052a3'}
-                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#0066cc'}
-                      >
-                        Editar
-                      </button>
-                      <button
-                        style={styles.deleteButton}
-                        onClick={() => handleDelete(student.id)}
-                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#c82333'}
-                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#dc3545'}
-                      >
-                        Deletar
-                      </button>
-                    </div>
-                  </td>
+          <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-azul-principal text-white">
+                  <th className="px-6 py-4 text-left font-bold">Nome</th>
+                  <th className="px-6 py-4 text-left font-bold">Turma</th>
+                  <th className="px-6 py-4 text-left font-bold">Ações</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {students.map((student) => (
+                  <tr key={student.id} className="hover:bg-gray-50 transition">
+                    <td className="px-6 py-4 font-medium text-gray-900">{student.nome}</td>
+                    <td className="px-6 py-4 text-gray-700">
+                      {student.turmaName || (student.turmaId ? classes.find(c => c.id === student.turmaId)?.nome || '-' : '-')}
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex gap-2">
+                        {!isUsingAPI && (
+                          <>
+                            <button
+                              onClick={() => handleOpenModal(student)}
+                              className="px-4 py-2 bg-azul-principal hover:bg-azul-hover text-white rounded-lg font-medium text-sm transition"
+                            >
+                              Editar
+                            </button>
+                            <button
+                              onClick={() => handleDelete(student.id)}
+                              className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium text-sm transition"
+                            >
+                              Deletar
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
 
       {/* Modal */}
-      <div style={{ ...styles.modal, ...(showModal ? styles.modalVisible : {}) }}>
-        <div style={styles.modalContent}>
-          <h2 style={{ marginTop: 0 }}>{editingId ? 'Editar Aluno' : 'Novo Aluno'}</h2>
-          <form onSubmit={handleSubmit}>
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Nome *</label>
-              <input
-                style={styles.input}
-                type="text"
-                value={formData.nome}
-                onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
-                placeholder="Nome completo"
-              />
-            </div>
+      {showModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="p-6">
+              <h2 className="text-2xl font-bold text-azul-principal mb-6">
+                {editingId ? 'Editar Aluno' : 'Novo Aluno'}
+              </h2>
 
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Turma *</label>
-              <select
-                style={styles.input}
-                value={formData.turmaId}
-                onChange={(e) => setFormData({ ...formData, turmaId: e.target.value })}
-              >
-                <option value="">Selecione uma turma</option>
-                {classes.length > 0 ? (
-                  classes.map((classItem) => (
-                    <option key={classItem.id} value={classItem.id}>
-                      {classItem.nome}
-                    </option>
-                  ))
-                ) : (
-                  <option disabled>Nenhuma turma cadastrada</option>
-                )}
-              </select>
-            </div>
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">
+                    Nome *
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.nome}
+                    onChange={(e) => setFormData({ ...formData, nome: e.target.value })}
+                    placeholder="Nome completo"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-azul-principal focus:border-transparent"
+                  />
+                </div>
 
-            <div style={styles.buttonGroup}>
-              <button
-                type="button"
-                style={styles.cancelButton}
-                onClick={handleCloseModal}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#5a6268'}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#6c757d'}
-              >
-                Cancelar
-              </button>
-              <button
-                type="submit"
-                style={styles.submitButton}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#218838'}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#28a745'}
-              >
-                {editingId ? 'Atualizar' : 'Criar'}
-              </button>
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">
+                    Turma *
+                  </label>
+                  <select
+                    value={formData.turmaId}
+                    onChange={(e) => setFormData({ ...formData, turmaId: e.target.value })}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-azul-principal focus:border-transparent"
+                  >
+                    <option value="">Selecione uma turma</option>
+                    {classes.length > 0 ? (
+                      classes.map((classItem) => (
+                        <option key={classItem.id} value={classItem.id}>
+                          {classItem.nome}
+                        </option>
+                      ))
+                    ) : (
+                      <option disabled>Nenhuma turma cadastrada</option>
+                    )}
+                  </select>
+                </div>
+
+                <div className="flex gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={handleCloseModal}
+                    className="flex-1 px-4 py-3 bg-gray-300 hover:bg-gray-400 text-gray-800 rounded-lg font-bold transition"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 px-4 py-3 bg-verde-principal hover:bg-verde-hover text-white rounded-lg font-bold transition"
+                  >
+                    {editingId ? 'Atualizar' : 'Criar'}
+                  </button>
+                </div>
+              </form>
             </div>
-          </form>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

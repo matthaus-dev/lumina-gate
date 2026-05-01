@@ -1,140 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { useTenant } from '../context/TenantContext';
-import { getDataSource } from '../services/dataSource';
+import { getDataSource, isApiDataSource } from '../services/dataSource';
 import Navbar from '../components/Navbar';
-
-const styles = {
-  container: {
-    minHeight: '100vh',
-    backgroundColor: '#f5f5f5',
-  },
-  content: {
-    maxWidth: '800px',
-    margin: '0 auto',
-    padding: '30px 20px',
-  },
-  title: {
-    fontSize: '28px',
-    fontWeight: '700',
-    color: '#1a1a1a',
-    marginBottom: '30px',
-    margin: 0,
-  },
-  card: {
-    backgroundColor: 'white',
-    borderRadius: '8px',
-    padding: '30px',
-    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-  },
-  section: {
-    marginBottom: '30px',
-    paddingBottom: '30px',
-    borderBottom: '1px solid #eee',
-  },
-  sectionTitle: {
-    fontSize: '18px',
-    fontWeight: '700',
-    color: '#1a1a1a',
-    marginBottom: '20px',
-  },
-  formGroup: {
-    marginBottom: '20px',
-  },
-  label: {
-    display: 'block',
-    marginBottom: '8px',
-    fontWeight: '600',
-    color: '#333',
-    fontSize: '14px',
-  },
-  input: {
-    width: '100%',
-    padding: '10px',
-    border: '1px solid #ddd',
-    borderRadius: '4px',
-    fontSize: '14px',
-    boxSizing: 'border-box',
-  },
-  toggleContainer: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '15px',
-    padding: '15px',
-    backgroundColor: '#f9f9f9',
-    borderRadius: '4px',
-    marginBottom: '15px',
-  },
-  toggleSwitch: {
-    width: '50px',
-    height: '30px',
-    backgroundColor: '#ddd',
-    borderRadius: '15px',
-    cursor: 'pointer',
-    transition: 'background-color 0.3s',
-    border: 'none',
-    padding: 0,
-    position: 'relative',
-  },
-  toggleLabel: {
-    fontSize: '14px',
-    fontWeight: '600',
-    color: '#333',
-    flex: 1,
-  },
-  buttonGroup: {
-    display: 'flex',
-    gap: '10px',
-    justifyContent: 'flex-end',
-    marginTop: '30px',
-    paddingTop: '30px',
-    borderTop: '1px solid #eee',
-  },
-  saveButton: {
-    backgroundColor: '#28a745',
-    color: 'white',
-    border: 'none',
-    padding: '12px 24px',
-    borderRadius: '4px',
-    cursor: 'pointer',
-    fontSize: '16px',
-    fontWeight: '600',
-    transition: 'background-color 0.2s',
-  },
-  cancelButton: {
-    backgroundColor: '#6c757d',
-    color: 'white',
-    border: 'none',
-    padding: '12px 24px',
-    borderRadius: '4px',
-    cursor: 'pointer',
-    fontSize: '16px',
-    fontWeight: '600',
-    transition: 'background-color 0.2s',
-  },
-  loader: {
-    textAlign: 'center',
-    padding: '40px',
-    color: '#666',
-  },
-};
 
 export default function Settings() {
   const tenantId = useTenant();
+  const [formData, setFormData] = useState({ nome: '', email: '', features: {} });
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
-  const [settings, setSettings] = useState({
-    id: 'general',
-    name: tenantId,
-    email: '',
-    enablePorteiro: true,
-    enableDispositivo: true,
-  });
+  const [saveLoading, setSaveLoading] = useState(false);
 
   const dataSource = getDataSource();
+  const isUsingAPI = isApiDataSource();
 
-  // Load settings
   useEffect(() => {
     loadSettings();
   }, [tenantId]);
@@ -143,13 +22,11 @@ export default function Settings() {
     try {
       setLoading(true);
       setError(null);
-      const data = await dataSource.getSettings(tenantId);
-      setSettings(data || {
-        id: 'general',
-        name: tenantId,
-        email: '',
-        enablePorteiro: true,
-        enableDispositivo: true,
+      const settings = await dataSource.getSettings(tenantId);
+      setFormData({
+        nome: settings?.nome || tenantId,
+        email: settings?.email || '',
+        features: settings?.features || { porteiro: false, display: false },
       });
     } catch (err) {
       console.error('[Settings] Error loading settings:', err);
@@ -159,178 +36,188 @@ export default function Settings() {
     }
   };
 
+  const handleInputChange = (field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const handleFeatureToggle = (featureName) => {
+    setFormData(prev => ({
+      ...prev,
+      features: {
+        ...prev.features,
+        [featureName]: !prev.features[featureName],
+      },
+    }));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      setSaving(true);
+      setSaveLoading(true);
       setError(null);
 
-      if (!settings.name.trim()) {
+      if (!formData.nome.trim()) {
         setError('Nome do tenant é obrigatório');
-        setSaving(false);
         return;
       }
 
-      await dataSource.updateSettings(tenantId, settings);
+      await dataSource.updateSettings(tenantId, formData);
       setSuccess('Configurações salvas com sucesso!');
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
       console.error('[Settings] Error saving settings:', err);
       setError('Erro ao salvar configurações: ' + err.message);
     } finally {
-      setSaving(false);
+      setSaveLoading(false);
     }
   };
 
-  const handleCancel = () => {
+  const handleCancel = async () => {
     loadSettings();
-    setError(null);
   };
-
-  const toggleFeature = (feature) => {
-    setSettings({
-      ...settings,
-      [feature]: !settings[feature],
-    });
-  };
-
-  if (loading) {
-    return (
-      <div style={styles.container}>
-        <Navbar />
-        <div style={styles.content}>
-          <div style={styles.loader}>Carregando configurações...</div>
-        </div>
-      </div>
-    );
-  }
 
   return (
-    <div style={styles.container}>
+    <div className="min-h-screen bg-gray-50">
       <Navbar />
-      <div style={styles.content}>
-        <h1 style={styles.title}>⚙️ Configurações do Tenant</h1>
+      <div className="max-w-4xl mx-auto px-4 py-12">
+        {/* Header */}
+        <div className="mb-12">
+          <h1 className="text-4xl font-bold text-azul-principal mb-2">⚙️ Configurações</h1>
+          <p className="text-gray-600">Gerencie as configurações da sua instituição</p>
+        </div>
 
-        <div style={styles.card}>
-          {error && (
-            <div style={{ backgroundColor: '#f8d7da', color: '#721c24', padding: '15px', borderRadius: '4px', marginBottom: '20px' }}>
-              {error}
+        {/* Error Message */}
+        {error && (
+          <div className="mb-6 p-4 bg-red-100 border-l-4 border-red-500 text-red-700 rounded-lg">
+            {error}
+          </div>
+        )}
+
+        {/* Success Message */}
+        {success && (
+          <div className="mb-6 p-4 bg-verde-claro border-l-4 border-verde-principal text-verde-secundaria rounded-lg">
+            {success}
+          </div>
+        )}
+
+        {/* Content */}
+        {loading ? (
+          <div className="text-center py-12 text-gray-600">
+            <div className="inline-block animate-spin">
+              <div className="border-4 border-gray-300 border-t-azul-principal rounded-full w-12 h-12"></div>
             </div>
-          )}
-
-          {success && (
-            <div style={{ backgroundColor: '#d4edda', color: '#155724', padding: '15px', borderRadius: '4px', marginBottom: '20px' }}>
-              {success}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit}>
-            {/* Informações Gerais */}
-            <div style={styles.section}>
-              <h2 style={styles.sectionTitle}>Informações Gerais</h2>
-
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Nome do Tenant *</label>
-                <input
-                  style={styles.input}
-                  type="text"
-                  value={settings.name}
-                  onChange={(e) => setSettings({ ...settings, name: e.target.value })}
-                  placeholder="Ex: Criança Inteligente"
-                />
-              </div>
-
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Email de Contato</label>
-                <input
-                  style={styles.input}
-                  type="email"
-                  value={settings.email}
-                  onChange={(e) => setSettings({ ...settings, email: e.target.value })}
-                  placeholder="Ex: contato@exemplo.com"
-                />
-              </div>
-            </div>
-
-            {/* Funcionalidades */}
-            <div style={styles.section}>
-              <h2 style={styles.sectionTitle}>Funcionalidades Ativadas</h2>
-
-              <div style={styles.toggleContainer}>
-                <label style={styles.toggleLabel}>📞 Sistema de Porteiro</label>
-                <button
-                  type="button"
-                  style={{
-                    ...styles.toggleSwitch,
-                    backgroundColor: settings.enablePorteiro ? '#28a745' : '#ddd',
-                  }}
-                  onClick={() => toggleFeature('enablePorteiro')}
-                >
-                  <div
-                    style={{
-                      position: 'absolute',
-                      width: '26px',
-                      height: '26px',
-                      backgroundColor: 'white',
-                      borderRadius: '50%',
-                      top: '2px',
-                      left: settings.enablePorteiro ? '22px' : '2px',
-                      transition: 'left 0.3s',
-                    }}
-                  />
-                </button>
-              </div>
-
-              <div style={styles.toggleContainer}>
-                <label style={styles.toggleLabel}>📺 Dispositivo de Exibição</label>
-                <button
-                  type="button"
-                  style={{
-                    ...styles.toggleSwitch,
-                    backgroundColor: settings.enableDispositivo ? '#28a745' : '#ddd',
-                  }}
-                  onClick={() => toggleFeature('enableDispositivo')}
-                >
-                  <div
-                    style={{
-                      position: 'absolute',
-                      width: '26px',
-                      height: '26px',
-                      backgroundColor: 'white',
-                      borderRadius: '50%',
-                      top: '2px',
-                      left: settings.enableDispositivo ? '22px' : '2px',
-                      transition: 'left 0.3s',
-                    }}
-                  />
-                </button>
-              </div>
+            <p className="mt-4">Carregando configurações...</p>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-sm p-8">
+            {/* Nome do Tenant */}
+            <div className="mb-8">
+              <label className="block text-sm font-bold text-gray-700 mb-3">
+                Nome do Tenant
+              </label>
+              <input
+                type="text"
+                value={formData.nome}
+                onChange={(e) => handleInputChange('nome', e.target.value)}
+                disabled={isUsingAPI}
+                placeholder="Nome do tenant"
+                className={`w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-azul-principal focus:border-transparent ${
+                  isUsingAPI ? 'bg-gray-100 cursor-not-allowed' : ''
+                }`}
+              />
+              <p className="text-xs text-gray-500 mt-2">Identificador único da instituição</p>
             </div>
 
-            {/* Botões de Ação */}
-            <div style={styles.buttonGroup}>
-              <button
-                type="button"
-                style={styles.cancelButton}
-                onClick={handleCancel}
-                disabled={saving}
-                onMouseEnter={(e) => !saving && (e.currentTarget.style.backgroundColor = '#5a6268')}
-                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#6c757d')}
-              >
-                Cancelar
-              </button>
-              <button
-                type="submit"
-                style={styles.saveButton}
-                disabled={saving}
-                onMouseEnter={(e) => !saving && (e.currentTarget.style.backgroundColor = '#218838')}
-                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#28a745')}
-              >
-                {saving ? 'Salvando...' : 'Salvar Configurações'}
-              </button>
+            {/* Email */}
+            <div className="mb-8">
+              <label className="block text-sm font-bold text-gray-700 mb-3">
+                Email de Contato
+              </label>
+              <input
+                type="email"
+                value={formData.email}
+                onChange={(e) => handleInputChange('email', e.target.value)}
+                disabled={isUsingAPI}
+                placeholder="email@exemplo.com"
+                className={`w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-azul-principal focus:border-transparent ${
+                  isUsingAPI ? 'bg-gray-100 cursor-not-allowed' : ''
+                }`}
+              />
+              <p className="text-xs text-gray-500 mt-2">Email para contato e notificações</p>
+            </div>
+
+            {/* Features */}
+            <div className="mb-12 pb-8 border-b border-gray-200">
+              <h3 className="text-lg font-bold text-gray-900 mb-6">Funcionalidades</h3>
+
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
+                  <div>
+                    <p className="font-medium text-gray-900">Sistema de Porteiro</p>
+                    <p className="text-xs text-gray-600 mt-1">Permite chamadas de alunos via porteiro</p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.features.porteiro || false}
+                      onChange={() => handleFeatureToggle('porteiro')}
+                      disabled={isUsingAPI}
+                      className="sr-only peer"
+                    />
+                    <div className={`w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-azul-claro rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-azul-principal ${
+                      isUsingAPI ? 'cursor-not-allowed opacity-50' : ''
+                    }`}></div>
+                  </label>
+                </div>
+
+                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
+                  <div>
+                    <p className="font-medium text-gray-900">Dispositivo de Exibição</p>
+                    <p className="text-xs text-gray-600 mt-1">Display para visualizar fila de chamadas</p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.features.display || false}
+                      onChange={() => handleFeatureToggle('display')}
+                      disabled={isUsingAPI}
+                      className="sr-only peer"
+                    />
+                    <div className={`w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-azul-claro rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-azul-principal ${
+                      isUsingAPI ? 'cursor-not-allowed opacity-50' : ''
+                    }`}></div>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            {/* Buttons */}
+            <div className="flex gap-4 justify-end">
+              {!isUsingAPI && (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleCancel}
+                    disabled={saveLoading}
+                    className="px-6 py-3 bg-gray-300 hover:bg-gray-400 text-gray-800 rounded-lg font-bold transition disabled:opacity-50"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={saveLoading}
+                    className="px-6 py-3 bg-verde-principal hover:bg-verde-hover text-white rounded-lg font-bold transition disabled:opacity-50"
+                  >
+                    {saveLoading ? 'Salvando...' : 'Salvar Configurações'}
+                  </button>
+                </>
+              )}
             </div>
           </form>
-        </div>
+        )}
       </div>
     </div>
   );

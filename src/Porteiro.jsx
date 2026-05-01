@@ -1,135 +1,24 @@
-
 import React, { useState, useEffect } from 'react';
 import { useTenant } from './context/TenantContext';
-import { getDataSource } from './services/dataSource';
+import { getDataSource, isApiDataSource } from './services/dataSource';
 import Navbar from './components/Navbar';
 
 const agruparPorTurma = (students, classes) => {
   const agrupado = {};
   students.forEach(student => {
-    const turmaId = student.turmaId;
-    if (!agrupado[turmaId]) {
-      const turma = classes.find(c => c.id === turmaId);
-      agrupado[turmaId] = {
-        nome: turma?.nome || 'Turma desconhecida',
+    // Use turmaName if available (from API), otherwise use turmaId (from Firestore)
+    const key = student.turmaName || student.turmaId;
+    const turmaName = student.turmaName || classes.find(c => c.id === student.turmaId)?.nome || 'Turma desconhecida';
+    
+    if (!agrupado[key]) {
+      agrupado[key] = {
+        nome: turmaName,
         alunos: [],
       };
     }
-    agrupado[turmaId].alunos.push(student);
+    agrupado[key].alunos.push(student);
   });
   return agrupado;
-};
-
-const styles = {
-  container: {
-    minHeight: '100vh',
-    backgroundColor: '#f5f5f5',
-  },
-  content: {
-    maxWidth: '1200px',
-    margin: '0 auto',
-    padding: '30px 20px',
-  },
-  header: {
-    color: '#1a1a1a',
-    marginBottom: '20px',
-    fontSize: '28px',
-    fontWeight: '700',
-  },
-  tabsContainer: {
-    display: 'flex',
-    gap: '10px',
-    marginBottom: '30px',
-    borderBottom: '2px solid #ddd',
-    paddingBottom: '10px',
-    flexWrap: 'wrap',
-  },
-  tab: {
-    padding: '10px 20px',
-    border: 'none',
-    cursor: 'pointer',
-    fontSize: '14px',
-    fontWeight: '500',
-    backgroundColor: 'transparent',
-    borderBottom: '3px solid transparent',
-    color: '#666',
-    transition: 'all 0.2s',
-  },
-  tabActive: {
-    color: '#0066cc',
-    borderBottomColor: '#0066cc',
-  },
-  section: {
-    marginBottom: '40px',
-  },
-  sectionTitle: {
-    fontSize: '18px',
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: '15px',
-    borderLeft: '4px solid #0066cc',
-    paddingLeft: '10px',
-  },
-  studentList: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '10px',
-  },
-  studentCard: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '12px',
-    backgroundColor: '#f9f9f9',
-    border: '1px solid #ddd',
-    borderRadius: '6px',
-    transition: 'background-color 0.2s',
-  },
-  studentName: {
-    fontSize: '16px',
-    color: '#333',
-  },
-  callButton: {
-    padding: '8px 16px',
-    backgroundColor: '#28a745',
-    color: 'white',
-    border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer',
-    fontWeight: '500',
-    fontSize: '14px',
-    transition: 'background-color 0.2s',
-  },
-  activeCallCard: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '12px',
-    backgroundColor: '#fff3cd',
-    border: '2px solid #ffc107',
-    borderRadius: '6px',
-    marginBottom: '10px',
-  },
-  activeCallInfo: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '4px',
-  },
-  confirmButton: {
-    padding: '8px 16px',
-    backgroundColor: '#dc3545',
-    color: 'white',
-    border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer',
-    fontWeight: '500',
-    fontSize: '14px',
-    transition: 'background-color 0.2s',
-  },
-  emptyMessage: {
-    color: '#999',
-    fontStyle: 'italic',
-  },
 };
 
 export default function Porteiro() {
@@ -142,6 +31,7 @@ export default function Porteiro() {
   const [loadingStudents, setLoadingStudents] = useState(true);
 
   const dataSource = getDataSource();
+  const isUsingAPI = isApiDataSource();
 
   // Load students and classes on mount
   useEffect(() => {
@@ -197,15 +87,17 @@ export default function Porteiro() {
     };
   }, [tenantId]);
 
-  const chamarAluno = async (studentId, nome, turmaId) => {
+  const chamarAluno = async (studentId, nome, turmaIdOrName) => {
     setLoading(true);
     try {
-      const turma = classes.find(c => c.id === turmaId);
-      console.log(`[Porteiro] Chamando aluno: ${nome} (${turma?.nome || turmaId})`);
+      // turmaIdOrName can be either an ID (from Firestore) or the name (from API)
+      const turma = classes.find(c => c.id === turmaIdOrName);
+      const turmaName = turma?.nome || turmaIdOrName; // Use turma name if found, otherwise use the value as-is
+      console.log(`[Porteiro] Chamando aluno: ${nome} (${turmaName})`);
       await dataSource.createCall(tenantId, {
         studentId,
         studentName: nome,
-        studentClass: turma?.nome || turmaId,
+        studentClass: turmaName,
       });
       console.log(`[Porteiro] ✅ Chamada criada`);
     } catch (error) {
@@ -231,36 +123,39 @@ export default function Porteiro() {
   };
 
   return (
-    <div style={styles.container}>
+    <div className="min-h-screen bg-gray-50">
       <Navbar />
-      <div style={styles.content}>
-        <h2 style={styles.header}>📞 Porteiro - Lista de Alunos</h2>
+      <div className="max-w-7xl mx-auto px-4 py-12">
+        <h2 className="text-4xl font-bold text-azul-principal mb-12">📞 Porteiro - Lista de Alunos</h2>
 
         {loadingStudents && (
-          <div style={{ textAlign: 'center', padding: '20px', color: '#666' }}>
-            Carregando alunos...
+          <div className="text-center py-12 text-gray-600">
+            <div className="inline-block animate-spin">
+              <div className="border-4 border-gray-300 border-t-azul-principal rounded-full w-12 h-12"></div>
+            </div>
+            <p className="mt-4">Carregando alunos...</p>
           </div>
         )}
 
         {!loadingStudents && turmaIds.length === 0 && (
-          <div style={{ textAlign: 'center', padding: '20px', color: '#999' }}>
+          <div className="text-center py-12 text-gray-600">
             Nenhum aluno disponível
           </div>
         )}
 
         {!loadingStudents && (
           <>
-            <div style={styles.tabsContainer}>
+            {/* Abas de Turmas */}
+            <div className="flex gap-2 mb-8 overflow-x-auto pb-2 border-b border-gray-200">
               {turmaIds.map(turmaId => (
                 <button
                   key={turmaId}
-                  style={{
-                    ...styles.tab,
-                    ...(selectedTurmaId === turmaId ? styles.tabActive : {}),
-                  }}
                   onClick={() => setSelectedTurmaId(turmaId)}
-                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f0f0f0'}
-                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                  className={`px-6 py-3 font-medium rounded-lg whitespace-nowrap transition ${
+                    selectedTurmaId === turmaId
+                      ? 'bg-azul-principal text-white'
+                      : 'bg-white text-gray-700 border border-gray-300 hover:border-azul-principal hover:text-azul-principal'
+                  }`}
                 >
                   {studentsByTurma[turmaId].nome}
                 </button>
@@ -269,35 +164,29 @@ export default function Porteiro() {
 
             {/* Lista de Alunos */}
             {selectedTurmaId && (
-              <div style={styles.section}>
-                <h3 style={styles.sectionTitle}>Alunos da Turma {studentsByTurma[selectedTurmaId].nome}</h3>
-                <div style={styles.studentList}>
+              <div className="mb-12">
+                <h3 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+                  <span className="text-3xl">👥</span>
+                  Alunos da Turma {studentsByTurma[selectedTurmaId].nome}
+                </h3>
+                <div className="space-y-3">
                   {studentsByTurma[selectedTurmaId].alunos.map(student => {
                     const alreadyInQueue = activeCalls.some(c => c.studentId === student.id);
                     return (
                       <div
                         key={student.id}
-                        style={styles.studentCard}
-                        onMouseEnter={(e) => !alreadyInQueue && (e.currentTarget.style.backgroundColor = '#f0f0f0')}
-                        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#f9f9f9')}
+                        className="flex items-center justify-between p-4 bg-white rounded-lg hover:bg-gray-50 transition border border-gray-200"
                       >
-                        <span style={styles.studentName}>{student.nome}</span>
+                        <span className="font-medium text-gray-900">{student.nome}</span>
                         <button
-                          style={{
-                            ...styles.callButton,
-                            ...(alreadyInQueue
-                              ? {
-                                  backgroundColor: '#ccc',
-                                  cursor: 'not-allowed',
-                                  opacity: 0.6,
-                                }
-                              : {}),
-                          }}
-                          onClick={() => chamarAluno(student.id, student.nome, student.turmaId)}
+                          onClick={() => chamarAluno(student.id, student.nome, student.turmaName || student.turmaId)}
                           disabled={loading || alreadyInQueue}
+                          className={`px-6 py-2 rounded-lg font-bold transition ${
+                            alreadyInQueue
+                              ? 'bg-gray-300 text-gray-600 cursor-not-allowed opacity-60'
+                              : 'bg-verde-principal hover:bg-verde-hover text-white'
+                          }`}
                           title={alreadyInQueue ? 'Aluno já está na fila' : ''}
-                          onMouseEnter={(e) => !alreadyInQueue && !loading && (e.currentTarget.style.backgroundColor = '#218838')}
-                          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#28a745')}
                         >
                           {alreadyInQueue ? '✓ Na Fila' : 'Chamar'}
                         </button>
@@ -309,73 +198,35 @@ export default function Porteiro() {
             )}
 
             {/* Fila de Chamadas */}
-            <div style={styles.section}>
-              <h3 style={styles.sectionTitle}>
-                📋 Fila de Chamadas ({activeCalls.length})
+            <div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+                <span className="text-3xl">📋</span>
+                Fila de Chamadas ({activeCalls.length})
               </h3>
               {activeCalls.length === 0 ? (
-                <p style={styles.emptyMessage}>Nenhuma chamada na fila</p>
+                <div className="bg-white p-8 rounded-lg text-center border-l-4 border-azul-principal">
+                  <p className="text-gray-600 italic">Nenhuma chamada pendente</p>
+                </div>
               ) : (
-                <div>
-                  {activeCalls.map((call, idx) => {
-                    const isFirst = idx === 0;
-                    return (
-                      <div
-                        key={call.id}
-                        style={{
-                          ...styles.activeCallCard,
-                          ...(isFirst
-                            ? {
-                                backgroundColor: '#ff6b6b',
-                                borderColor: '#d63031',
-                                boxShadow: '0 0 15px rgba(214, 48, 49, 0.3)',
-                              }
-                            : {}),
-                        }}
-                      >
-                        <div
-                          style={{
-                            display: 'flex',
-                            gap: '15px',
-                            alignItems: 'center',
-                            flex: 1,
-                          }}
-                        >
-                          <div
-                            style={{
-                              fontSize: '18px',
-                              fontWeight: '700',
-                              backgroundColor: isFirst ? '#d63031' : '#999',
-                              color: 'white',
-                              width: '40px',
-                              height: '40px',
-                              borderRadius: '50%',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                            }}
-                          >
-                            {idx + 1}
-                          </div>
-                          <div style={styles.activeCallInfo}>
-                            <strong style={isFirst ? { color: '#d63031', fontSize: '16px' } : {}}>
-                              {call.studentName}
-                            </strong>
-                            <small>Turma: {call.studentClass}</small>
-                          </div>
-                        </div>
-                        <button
-                          style={styles.confirmButton}
-                          onClick={() => confirmarSaida(call.id)}
-                          disabled={loading}
-                          onMouseEnter={(e) => !loading && (e.currentTarget.style.backgroundColor = '#c82333')}
-                          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#dc3545')}
-                        >
-                          {isFirst ? '✓ Confirmar' : 'Confirmar'}
-                        </button>
+                <div className="space-y-3">
+                  {activeCalls.map(call => (
+                    <div
+                      key={call.id}
+                      className="flex items-center justify-between p-4 bg-yellow-50 rounded-lg border-l-4 border-yellow-400"
+                    >
+                      <div>
+                        <p className="font-bold text-gray-900">{call.studentName}</p>
+                        <p className="text-sm text-gray-600">{call.studentClass}</p>
                       </div>
-                    );
-                  })}
+                      <button
+                        onClick={() => confirmarSaida(call.id)}
+                        disabled={loading}
+                        className="px-6 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-bold transition disabled:opacity-50"
+                      >
+                        Confirmar Saída
+                      </button>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>

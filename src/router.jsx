@@ -47,7 +47,7 @@ export const router = createBrowserRouter([
         lazy: () => import('./Porteiro').then(m => ({ Component: m.default })),
       },
       {
-        path: 'dispositivo',
+        path: 'display',
         lazy: () => import('./Dispositivo').then(m => ({ Component: m.default })),
       },
       {
