@@ -29,6 +29,12 @@ export default function Porteiro() {
   const [activeCalls, setActiveCalls] = useState([]);
   const [loading, setLoading] = useState(false);
   const [loadingStudents, setLoadingStudents] = useState(true);
+  const [voiceSettings, setVoiceSettings] = useState({
+    enabled: true,
+    rate: 0.9,
+    pitch: 1.0,
+    selectedVoice: null,
+  });
 
   const dataSource = getDataSource();
   const isUsingAPI = isApiDataSource();
@@ -37,7 +43,19 @@ export default function Porteiro() {
   useEffect(() => {
     loadStudents();
     loadClasses();
+    loadVoiceSettings();
   }, [tenantId]);
+
+  const loadVoiceSettings = async () => {
+    try {
+      const settings = await dataSource.getSettings(tenantId);
+      if (settings?.features?.voice) {
+        setVoiceSettings(settings.features.voice);
+      }
+    } catch (error) {
+      console.error('[Porteiro] Error loading voice settings:', error);
+    }
+  };
 
   const loadClasses = async () => {
     try {
@@ -100,11 +118,47 @@ export default function Porteiro() {
         studentClass: turmaName,
       });
       console.log(`[Porteiro] ✅ Chamada criada`);
+
+      // Play sound with voice settings
+      if (voiceSettings.enabled) {
+        playCallSound(nome, turmaName);
+      }
     } catch (error) {
       console.error('[Porteiro] ❌ Erro ao chamar aluno:', error);
       alert('Erro ao chamar aluno: ' + error.message);
     }
     setLoading(false);
+  };
+
+  const playCallSound = (studentName, turmaName) => {
+    const synthesis = window.speechSynthesis;
+    if (synthesis) {
+      synthesis.cancel();
+
+      const utterance = new SpeechSynthesisUtterance(
+        `Aluno ${studentName}, da turma ${turmaName}.`
+      );
+      utterance.lang = 'pt-BR';
+      utterance.rate = voiceSettings.rate;
+      utterance.pitch = voiceSettings.pitch;
+
+      // Find selected voice or use first PT voice
+      const voices = synthesis.getVoices();
+      if (voiceSettings.selectedVoice) {
+        const selectedVoice = voices.find(v => v.name === voiceSettings.selectedVoice);
+        if (selectedVoice) {
+          utterance.voice = selectedVoice;
+        }
+      } else {
+        // Use first Portuguese voice available
+        const ptVoice = voices.find(v => v.lang.startsWith('pt'));
+        if (ptVoice) {
+          utterance.voice = ptVoice;
+        }
+      }
+
+      synthesis.speak(utterance);
+    }
   };
 
   const confirmarSaida = async (callId) => {

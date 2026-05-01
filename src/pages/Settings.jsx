@@ -3,6 +3,7 @@ import { useTenant } from '../context/TenantContext';
 import { useDataSourceConfig } from '../context/TenantContext';
 import { getDataSource, isApiDataSource, setDataSourceConfig } from '../services/dataSource';
 import Navbar from '../components/Navbar';
+import VoiceSettings from '../components/VoiceSettings';
 
 export default function Settings() {
   const tenantId = useTenant();
@@ -61,6 +62,16 @@ export default function Settings() {
       features: {
         ...prev.features,
         [featureName]: !prev.features[featureName],
+      },
+    }));
+  };
+
+  const handleVoiceSettingsChange = (voiceSettings) => {
+    setFormData(prev => ({
+      ...prev,
+      features: {
+        ...prev.features,
+        voice: voiceSettings,
       },
     }));
   };
@@ -207,6 +218,14 @@ export default function Settings() {
                 </p>
               </div>
             )}
+
+            {/* Voice Settings */}
+            <div className="mb-12 pb-8 border-b border-gray-200">
+              <VoiceSettings 
+                value={formData.features.voice || {}}
+                onChange={handleVoiceSettingsChange}
+              />
+            </div>
 
             {/* Features */}
             <div className="mb-12 pb-8 border-b border-gray-200">
