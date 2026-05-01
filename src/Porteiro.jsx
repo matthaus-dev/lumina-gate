@@ -1,208 +1,108 @@
+import React, { useState, useEffect } from 'react';
+import { useTenant } from './context/TenantContext';
+import { getDataSource, isApiDataSource } from './services/dataSource';
+import Navbar from './components/Navbar';
 
-import React, { useState, useEffect } from "react";
-import { db } from "./firebase";
-import { collection, addDoc, updateDoc, doc, onSnapshot, query, where, serverTimestamp } from "firebase/firestore";
-
-const agruparPorSerie = (students) => {
+const agruparPorTurma = (students, classes) => {
   const agrupado = {};
   students.forEach(student => {
-    if (!agrupado[student.serie]) {
-      agrupado[student.serie] = [];
+    // Use turmaName if available (from API), otherwise use turmaId (from Firestore)
+    const key = student.turmaName || student.turmaId;
+    const turmaName = student.turmaName || classes.find(c => c.id === student.turmaId)?.nome || 'Turma desconhecida';
+    
+    if (!agrupado[key]) {
+      agrupado[key] = {
+        nome: turmaName,
+        alunos: [],
+      };
     }
-    agrupado[student.serie].push(student);
+    agrupado[key].alunos.push(student);
   });
   return agrupado;
 };
 
-const styles = {
-  container: {
-    padding: 20,
-    fontFamily: "Arial, sans-serif",
-    maxWidth: 1000,
-    margin: "0 auto",
-  },
-  header: {
-    color: "#1a1a1a",
-    marginBottom: 20,
-  },
-  tabsContainer: {
-    display: "flex",
-    gap: 10,
-    marginBottom: 30,
-    borderBottom: "2px solid #ddd",
-    paddingBottom: 10,
-    flexWrap: "wrap",
-  },
-  tab: {
-    padding: "10px 20px",
-    border: "none",
-    cursor: "pointer",
-    fontSize: 14,
-    fontWeight: 500,
-    backgroundColor: "transparent",
-    borderBottom: "3px solid transparent",
-    color: "#666",
-  },
-  tabActive: {
-    color: "#0066cc",
-    borderBottomColor: "#0066cc",
-  },
-  section: {
-    marginBottom: 40,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 600,
-    color: "#333",
-    marginBottom: 15,
-    borderLeft: "4px solid #0066cc",
-    paddingLeft: 10,
-  },
-  studentList: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 10,
-  },
-  studentCard: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 12,
-    backgroundColor: "#f9f9f9",
-    border: "1px solid #ddd",
-    borderRadius: 6,
-    hover: { backgroundColor: "#f0f0f0" },
-  },
-  studentName: {
-    fontSize: 16,
-    color: "#333",
-  },
-  callButton: {
-    padding: "8px 16px",
-    backgroundColor: "#28a745",
-    color: "white",
-    border: "none",
-    borderRadius: 4,
-    cursor: "pointer",
-    fontWeight: 500,
-    fontSize: 14,
-  },
-  activeCallCard: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 12,
-    backgroundColor: "#fff3cd",
-    border: "2px solid #ffc107",
-    borderRadius: 6,
-    marginBottom: 10,
-  },
-  activeCallInfo: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 4,
-  },
-  confirmButton: {
-    padding: "8px 16px",
-    backgroundColor: "#dc3545",
-    color: "white",
-    border: "none",
-    borderRadius: 4,
-    cursor: "pointer",
-    fontWeight: 500,
-    fontSize: 14,
-  },
-  emptyMessage: {
-    color: "#999",
-    fontStyle: "italic",
-  },
-};
-
 export default function Porteiro() {
+  const tenantId = useTenant();
   const [students, setStudents] = useState([]);
-  const [selectedSerie, setSelectedSerie] = useState(null);
+  const [classes, setClasses] = useState([]);
+  const [selectedTurmaId, setSelectedTurmaId] = useState(null);
   const [activeCalls, setActiveCalls] = useState([]);
   const [loading, setLoading] = useState(false);
   const [loadingStudents, setLoadingStudents] = useState(true);
 
-  // Buscar alunos da API
+  const dataSource = getDataSource();
+  const isUsingAPI = isApiDataSource();
+
+  // Load students and classes on mount
   useEffect(() => {
-    const fetchStudents = async () => {
-      try {
-        const apiUrl = import.meta.env.VITE_API_URL;
-        console.log(`[Porteiro] Buscando alunos de: ${apiUrl}/students`);
-        
-        const response = await fetch(`${apiUrl}/students`);
-        if (!response.ok) {
-          throw new Error(`Erro ao buscar alunos: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        console.log(`[Porteiro] ✅ ${data.data.length} alunos carregados`, data.data);
-        setStudents(data.data);
-      } catch (error) {
-        console.error("[Porteiro] ❌ Erro ao buscar alunos:", error);
-        alert("Erro ao carregar alunos: " + error.message);
-      } finally {
-        setLoadingStudents(false);
-      }
-    };
+    loadStudents();
+    loadClasses();
+  }, [tenantId]);
 
-    fetchStudents();
-  }, []);
-
-  const studentsBySerie = agruparPorSerie(students);
-  const series = Object.keys(studentsBySerie).sort();
-
-  // Inicializar com primeira série
-  useEffect(() => {
-    if (series.length > 0 && !selectedSerie) {
-      setSelectedSerie(series[0]);
+  const loadClasses = async () => {
+    try {
+      const data = await dataSource.getClasses(tenantId);
+      setClasses(data || []);
+    } catch (error) {
+      console.error('[Porteiro] Erro ao carregar turmas:', error);
     }
-  }, [series, selectedSerie]);
+  };
 
-  // Listener para chamadas ativas na fila
+  const loadStudents = async () => {
+    try {
+      setLoadingStudents(true);
+      console.log(`[Porteiro] Carregando alunos do tenant: ${tenantId}`);
+      const data = await dataSource.getStudents(tenantId);
+      setStudents(data || []);
+      console.log(`[Porteiro] ✅ ${(data || []).length} alunos carregados`);
+    } catch (error) {
+      console.error('[Porteiro] ❌ Erro ao carregar alunos:', error);
+      alert('Erro ao carregar alunos: ' + error.message);
+    } finally {
+      setLoadingStudents(false);
+    }
+  };
+
+  const studentsByTurma = agruparPorTurma(students, classes);
+  const turmaIds = Object.keys(studentsByTurma).sort();
+
+  // Initialize with first turma
   useEffect(() => {
-    const q = query(
-      collection(db, "chamadas"),
-      where("status", "==", "pending")
-    );
+    if (turmaIds.length > 0 && !selectedTurmaId) {
+      setSelectedTurmaId(turmaIds[0]);
+    }
+  }, [turmaIds, selectedTurmaId]);
 
-    const unsub = onSnapshot(q, (snapshot) => {
-      const calls = [];
-      snapshot.forEach(doc => {
-        calls.push({
-          id: doc.id,
-          ...doc.data(),
-        });
-      });
+  // Listener for active calls
+  useEffect(() => {
+    const unsubscribe = dataSource.onSnapshotCalls(tenantId, (calls) => {
+      console.log(`[Porteiro] Chamadas atualizadas:`, calls);
       setActiveCalls(calls);
     });
 
-    return () => unsub();
-  }, []);
+    return () => {
+      if (typeof unsubscribe === 'function') {
+        unsubscribe();
+      }
+    };
+  }, [tenantId]);
 
-  const chamarAluno = async (studentId, nome, serie) => {
+  const chamarAluno = async (studentId, nome, turmaIdOrName) => {
     setLoading(true);
     try {
-      console.log(`[Porteiro] Chamando aluno: ${nome} (${serie})`);
-      const payload = {
+      // turmaIdOrName can be either an ID (from Firestore) or the name (from API)
+      const turma = classes.find(c => c.id === turmaIdOrName);
+      const turmaName = turma?.nome || turmaIdOrName; // Use turma name if found, otherwise use the value as-is
+      console.log(`[Porteiro] Chamando aluno: ${nome} (${turmaName})`);
+      await dataSource.createCall(tenantId, {
         studentId,
         studentName: nome,
-        studentClass: serie,
-        status: "pending",
-        createdAt: serverTimestamp(),
-      };
-      console.log(`[Porteiro] Payload a ser salvo:`, payload);
-      
-      const docRef = await addDoc(collection(db, "chamadas"), payload);
-      console.log(`[Porteiro] ✅ Chamada criada com ID: ${docRef.id}`);
-      console.log(`[Porteiro] Acesse em: db.chamadas.${docRef.id}`);
+        studentClass: turmaName,
+      });
+      console.log(`[Porteiro] ✅ Chamada criada`);
     } catch (error) {
-      console.error("[Porteiro] ❌ ERRO ao chamar aluno:", error);
-      console.error("[Porteiro] Código de erro:", error.code);
-      console.error("[Porteiro] Mensagem:", error.message);
-      alert("Erro ao chamar aluno: " + error.message);
+      console.error('[Porteiro] ❌ Erro ao chamar aluno:', error);
+      alert('Erro ao chamar aluno: ' + error.message);
     }
     setLoading(false);
   };
@@ -211,162 +111,128 @@ export default function Porteiro() {
     setLoading(true);
     try {
       console.log(`[Porteiro] Confirmando saída da chamada: ${callId}`);
-      await updateDoc(doc(db, "chamadas", callId), {
-        status: "confirmed",
-        confirmedAt: serverTimestamp(),
+      await dataSource.updateCall(tenantId, callId, {
+        status: 'confirmed',
       });
-      console.log(`[Porteiro] Saída confirmada`);
+      console.log(`[Porteiro] ✅ Saída confirmada`);
     } catch (error) {
-      console.error("[Porteiro] Erro ao confirmar saída:", error);
-      alert("Erro ao confirmar saída: " + error.message);
+      console.error('[Porteiro] Erro ao confirmar saída:', error);
+      alert('Erro ao confirmar saída: ' + error.message);
     }
     setLoading(false);
   };
 
   return (
-    <div style={styles.container} className="porteiro-container">
-      <h2 style={styles.header} className="porteiro-header">📞 Porteiro - Lista de Alunos</h2>
+    <div className="min-h-screen bg-gray-50">
+      <Navbar />
+      <div className="max-w-7xl mx-auto px-4 py-12">
+        <h2 className="text-4xl font-bold text-azul-principal mb-12">📞 Porteiro - Lista de Alunos</h2>
 
-      {loadingStudents && (
-        <div style={{ textAlign: "center", padding: "20px", color: "#666" }}>
-          Carregando alunos...
-        </div>
-      )}
-
-      {!loadingStudents && series.length === 0 && (
-        <div style={{ textAlign: "center", padding: "20px", color: "#999" }}>
-          Nenhum aluno disponível
-        </div>
-      )}
-
-      {!loadingStudents && (
-        <>
-          {/* Abas de Séries */}
-          <div style={styles.tabsContainer} className="porteiro-tabs-container">
-            {series.map(serie => (
-              <button
-                key={serie}
-                className="porteiro-tab"
-                style={{
-                  ...styles.tab,
-                  ...(selectedSerie === serie ? styles.tabActive : {}),
-                }}
-                onClick={() => setSelectedSerie(serie)}
-              >
-                {serie}
-              </button>
-            ))}
-          </div>
-
-          {/* Lista de Alunos */}
-          {selectedSerie && (
-            <div style={styles.section} className="porteiro-section">
-              <h3 style={styles.sectionTitle} className="porteiro-section-title">Alunos da Série {selectedSerie}</h3>
-          <div style={styles.studentList} className="porteiro-student-list">
-            {studentsBySerie[selectedSerie].map(student => {
-              const alreadyInQueue = activeCalls.some(c => c.studentId === student.id);
-              return (
-                <div key={student.id} style={styles.studentCard} className="porteiro-student-card">
-                  <span style={styles.studentName} className="porteiro-student-name">{student.nome}</span>
-                  <button
-                    className="porteiro-call-button"
-                    style={{
-                      ...styles.callButton,
-                      ...(alreadyInQueue
-                        ? {
-                            backgroundColor: "#ccc",
-                            cursor: "not-allowed",
-                            opacity: 0.6,
-                          }
-                        : {}),
-                    }}
-                    onClick={() => chamarAluno(student.id, student.nome, student.serie)}
-                    disabled={loading || alreadyInQueue}
-                    title={alreadyInQueue ? "Aluno já está na fila" : ""}
-                  >
-                    {alreadyInQueue ? "✓ Na Fila" : "Chamar"}
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Fila de Chamadas */}
-      <div style={styles.section} className="porteiro-section">
-        <h3 style={styles.sectionTitle} className="porteiro-section-title">
-          📋 Fila de Chamadas ({activeCalls.length})
-        </h3>
-        {activeCalls.length === 0 ? (
-          <p style={styles.emptyMessage}>Nenhuma chamada na fila</p>
-        ) : (
-          <div>
-            {activeCalls.map((call, idx) => {
-              const isFirst = idx === 0;
-              return (
-                <div
-                  key={call.id}
-                  className="porteiro-active-call-card"
-                  style={{
-                    ...styles.activeCallCard,
-                    ...(isFirst
-                      ? {
-                          backgroundColor: "#ff6b6b",
-                          borderColor: "#d63031",
-                          boxShadow: "0 0 15px rgba(214, 48, 49, 0.3)",
-                        }
-                      : {}),
-                  }}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: 15,
-                      alignItems: "center",
-                      flex: 1,
-                    }}
-                  >
-                    <div
-                      style={{
-                        fontSize: 18,
-                        fontWeight: 700,
-                        backgroundColor: isFirst ? "#d63031" : "#999",
-                        color: "white",
-                        width: 40,
-                        height: 40,
-                        borderRadius: "50%",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      {idx + 1}
-                    </div>
-                    <div style={styles.activeCallInfo}>
-                      <strong style={isFirst ? { color: "#d63031" , fontSize: 16} : {}}>
-                        {call.studentName}
-                      </strong>
-                      <small>Turma: {call.studentClass}</small>
-                      {isFirst && <small style={{ color: "#d63031", fontWeight: 600 }}>🔊 Sendo chamado...</small>}
-                    </div>
-                  </div>
-                  <button
-                    className="porteiro-confirm-button"
-                    style={styles.confirmButton}
-                    onClick={() => confirmarSaida(call.id)}
-                    disabled={loading}
-                  >
-                    Confirmar Saída
-                  </button>
-                </div>
-              );
-            })}
+        {loadingStudents && (
+          <div className="text-center py-12 text-gray-600">
+            <div className="inline-block animate-spin">
+              <div className="border-4 border-gray-300 border-t-azul-principal rounded-full w-12 h-12"></div>
+            </div>
+            <p className="mt-4">Carregando alunos...</p>
           </div>
         )}
+
+        {!loadingStudents && turmaIds.length === 0 && (
+          <div className="text-center py-12 text-gray-600">
+            Nenhum aluno disponível
+          </div>
+        )}
+
+        {!loadingStudents && (
+          <>
+            {/* Abas de Turmas */}
+            <div className="flex gap-2 mb-8 overflow-x-auto pb-2 border-b border-gray-200">
+              {turmaIds.map(turmaId => (
+                <button
+                  key={turmaId}
+                  onClick={() => setSelectedTurmaId(turmaId)}
+                  className={`px-6 py-3 font-medium rounded-lg whitespace-nowrap transition ${
+                    selectedTurmaId === turmaId
+                      ? 'bg-azul-principal text-white'
+                      : 'bg-white text-gray-700 border border-gray-300 hover:border-azul-principal hover:text-azul-principal'
+                  }`}
+                >
+                  {studentsByTurma[turmaId].nome}
+                </button>
+              ))}
+            </div>
+
+            {/* Lista de Alunos */}
+            {selectedTurmaId && (
+              <div className="mb-12">
+                <h3 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+                  <span className="text-3xl">👥</span>
+                  Alunos da Turma {studentsByTurma[selectedTurmaId].nome}
+                </h3>
+                <div className="space-y-3">
+                  {studentsByTurma[selectedTurmaId].alunos.map(student => {
+                    const alreadyInQueue = activeCalls.some(c => c.studentId === student.id);
+                    return (
+                      <div
+                        key={student.id}
+                        className="flex items-center justify-between p-4 bg-white rounded-lg hover:bg-gray-50 transition border border-gray-200"
+                      >
+                        <span className="font-medium text-gray-900">{student.nome}</span>
+                        <button
+                          onClick={() => chamarAluno(student.id, student.nome, student.turmaName || student.turmaId)}
+                          disabled={loading || alreadyInQueue}
+                          className={`px-6 py-2 rounded-lg font-bold transition ${
+                            alreadyInQueue
+                              ? 'bg-gray-300 text-gray-600 cursor-not-allowed opacity-60'
+                              : 'bg-verde-principal hover:bg-verde-hover text-white'
+                          }`}
+                          title={alreadyInQueue ? 'Aluno já está na fila' : ''}
+                        >
+                          {alreadyInQueue ? '✓ Na Fila' : 'Chamar'}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Fila de Chamadas */}
+            <div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+                <span className="text-3xl">📋</span>
+                Fila de Chamadas ({activeCalls.length})
+              </h3>
+              {activeCalls.length === 0 ? (
+                <div className="bg-white p-8 rounded-lg text-center border-l-4 border-azul-principal">
+                  <p className="text-gray-600 italic">Nenhuma chamada pendente</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {activeCalls.map(call => (
+                    <div
+                      key={call.id}
+                      className="flex items-center justify-between p-4 bg-yellow-50 rounded-lg border-l-4 border-yellow-400"
+                    >
+                      <div>
+                        <p className="font-bold text-gray-900">{call.studentName}</p>
+                        <p className="text-sm text-gray-600">{call.studentClass}</p>
+                      </div>
+                      <button
+                        onClick={() => confirmarSaida(call.id)}
+                        disabled={loading}
+                        className="px-6 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-bold transition disabled:opacity-50"
+                      >
+                        Confirmar Saída
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </>
+        )}
       </div>
-        </>
-      )}
     </div>
   );
 }

@@ -1,296 +1,172 @@
-
-import React, { useEffect, useState } from "react";
-import { db } from "./firebase";
-import { collection, onSnapshot, query, where, getDocs } from "firebase/firestore";
-
-const styles = {
-  container: {
-    padding: 20,
-    fontFamily: "Arial, sans-serif",
-    maxWidth: 800,
-    margin: "0 auto",
-  },
-  header: {
-    color: "#1a1a1a",
-    marginBottom: 20,
-  },
-  statusContainer: {
-    padding: 20,
-    backgroundColor: "#e8f5e9",
-    border: "2px solid #4caf50",
-    borderRadius: 8,
-    marginBottom: 30,
-    textAlign: "center",
-  },
-  statusText: {
-    fontSize: 16,
-    fontWeight: 600,
-    color: "#2e7d32",
-  },
-  callsList: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 15,
-  },
-  callCard: {
-    padding: 15,
-    border: "2px solid #ddd",
-    borderRadius: 8,
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    transition: "all 0.3s ease",
-  },
-  callInfo: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 5,
-    flex: 1,
-  },
-  callStatus: {
-    fontSize: 12,
-    color: "#fff",
-    fontStyle: "italic",
-    fontWeight: 600,
-    animation: "pulse 1.5s infinite",
-  },
-  emptyMessage: {
-    textAlign: "center",
-    color: "#999",
-    fontStyle: "italic",
-    fontSize: 16,
-    padding: 40,
-  },
-};
-
-const keyframes = `
-  @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.7; }
-  }
-`;
+import React, { useState, useEffect } from 'react';
+import { useTenant } from './context/TenantContext';
+import { getDataSource } from './services/dataSource';
+import Navbar from './components/Navbar';
 
 export default function Dispositivo() {
-  const [allCalls, setAllCalls] = useState([]);
-  const [currentCallIndex, setCurrentCallIndex] = useState(0);
-  const [callingInterval, setCallingInterval] = useState(null);
+  const tenantId = useTenant();
+  const [currentCall, setCurrentCall] = useState(null);
+  const [activeCalls, setActiveCalls] = useState([]);
+  const [callIndex, setCallIndex] = useState(0);
+
+  const dataSource = getDataSource();
+
+  // Listener for active calls
   useEffect(() => {
-    console.log("[Dispositivo] Iniciando listener de fila...");
-
-    const q = query(
-      collection(db, "chamadas"),
-      where("status", "==", "pending")
-    );
-
-    // DEBUG: Teste imediato de conexão
-    getDocs(q)
-      .then(snapshot => {
-        const calls = [];
-        snapshot.forEach(doc => {
-          calls.push({
-            id: doc.id,
-            ...doc.data(),
-          });
-        });
-        // Ordenar por createdAt (mais antigos primeiro)
-        calls.sort((a, b) => a.createdAt - b.createdAt);
-        console.log(`[Dispositivo] 📊 Teste inicial - ${calls.length} chamadas na fila`);
-        calls.forEach((call, idx) => {
-          console.log(`  [${idx}] ${call.studentName} (${call.studentClass})`);
-        });
-      })
-      .catch(err => {
-        console.error("[Dispositivo] ❌ Erro ao fazer teste getDocs():", err.code, err.message);
-      });
-
-    // Listener permanente
-    const unsub = onSnapshot(
-      q,
-      (snapshot) => {
-        console.log(`[Dispositivo] 🔄 Fila atualizada - ${snapshot.size} chamadas pendentes`);
-        const calls = [];
-        snapshot.forEach(doc => {
-          const data = doc.data();
-          calls.push({
-            id: doc.id,
-            ...data,
-          });
-        });
-        // Ordenar por createdAt (mais antigos primeiro)
-        calls.sort((a, b) => a.createdAt - b.createdAt);
-
-        calls.forEach((call, idx) => {
-          console.log(`  [${idx}] ${call.studentName} - ${call.id}`);
-        });
-        setAllCalls(calls);
-
-        // Resetar índice se fila ficou vazia ou se tamanho mudou drasticamente
-        if (calls.length === 0) {
-          console.log("[Dispositivo] ✓ Fila vazia");
-          setCurrentCallIndex(0);
-        } else if (currentCallIndex >= calls.length) {
-          // Se o índice saiu do range, volta ao início
-          console.log("[Dispositivo] 🔄 Índice resetado para 0");
-          setCurrentCallIndex(0);
-        }
-      },
-      (error) => {
-        console.error("[Dispositivo] ❌ Erro no listener:", error.code, error.message);
-      }
-    );
+    const unsubscribe = dataSource.onSnapshotCalls(tenantId, (calls) => {
+      console.log('[Dispositivo] Chamadas atualizadas:', calls);
+      setActiveCalls(calls || []);
+    });
 
     return () => {
-      console.log("[Dispositivo] 🛑 Desmontando listener");
-      unsub();
-    };
-  }, [currentCallIndex]);
-
-  // Gerenciar TTS: chamar cada aluno da fila em sequência
-  useEffect(() => {
-    if (allCalls.length === 0) {
-      if (callingInterval) {
-        clearInterval(callingInterval);
-        setCallingInterval(null);
+      if (typeof unsubscribe === 'function') {
+        unsubscribe();
       }
+    };
+  }, [tenantId]);
+
+  // Update current call every 7 seconds
+  useEffect(() => {
+    if (activeCalls.length === 0) {
+      setCurrentCall(null);
+      setCallIndex(0);
       return;
     }
 
-    const currentCall = allCalls[currentCallIndex];
-    if (!currentCall) return;
+    setCurrentCall(activeCalls[callIndex]);
 
-    console.log(`[Dispositivo] 🔊 Chamando: ${currentCall.studentName} (${currentCallIndex + 1}/${allCalls.length})`);
-
-    // Chamar imediatamente
-    speakCall(currentCall);
-
-    // A cada 7 segundos, passa para o próximo aluno
     const interval = setInterval(() => {
-      setCurrentCallIndex((prevIdx) => {
-        const nextIdx = (prevIdx + 1) % allCalls.length; // Volta ao 0 quando chegar ao fim
-        const nextCall = allCalls[nextIdx];
-        console.log(`[Dispositivo] 🔊 Próximo aluno: ${nextCall.studentName} (${nextIdx + 1}/${allCalls.length})`);
-        speakCall(nextCall);
-        return nextIdx;
-      });
+      setCallIndex(prev => (prev + 1) % activeCalls.length);
     }, 7000);
 
-    setCallingInterval(interval);
+    return () => clearInterval(interval);
+  }, [activeCalls, callIndex]);
 
-    // Cleanup
-    return () => {
-      clearInterval(interval);
-    };
-  }, [allCalls, currentCallIndex]);
+  // Speak current call name
+  useEffect(() => {
+    if (currentCall?.studentName) {
+      console.log(`[Dispositivo] Anunciando: ${currentCall.studentName}`);
 
-  const speakCall = (call) => {
-    const message = `${call.studentName}, turma ${call.studentClass}`;
-    const utterance = new SpeechSynthesisUtterance(message);
+      const synthesis = window.speechSynthesis;
+      if (synthesis) {
+        synthesis.cancel();
 
-    utterance.lang = "pt-BR";
-    utterance.rate = 0.9;
-    utterance.pitch = 1;
-    utterance.volume = 1;
-    
-    // Buscar a voz Daniel PT-BR
-    const voices = speechSynthesis.getVoices();
-    const danielVoice = voices.find(v => v.name.includes("Daniel") && v.lang.startsWith("pt"));
-    
-    if (danielVoice) {
-      utterance.voice = danielVoice;
+        const utterance = new SpeechSynthesisUtterance(
+          `Aluno ${currentCall.studentName}, da turma ${currentCall.studentClass}.`
+        );
+        utterance.lang = 'pt-BR';
+        utterance.rate = 0.9;
+
+        // Find Daniel voice if available
+        const voices = synthesis.getVoices();
+        const danielVoice = voices.find(
+          v => v.name.includes('Daniel') || v.lang.includes('pt-BR')
+        );
+        if (danielVoice) {
+          utterance.voice = danielVoice;
+        }
+
+        synthesis.speak(utterance);
+      }
     }
-
-    speechSynthesis.cancel();
-    speechSynthesis.speak(utterance);
-
-    console.log(`[TTS] ${message}`);
-  };
+  }, [currentCall]);
 
   return (
-    <div style={styles.container} className="dispositivo-container">
-      <style>{keyframes}</style>
+    <div className="min-h-screen bg-gradient-to-br from-azul-principal to-azul-hover">
+      <Navbar />
 
-      <h2 style={styles.header} className="dispositivo-header">🔊 Dispositivo - Fila de Chamadas</h2>
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        {!currentCall ? (
+          <div className="h-[60vh] flex flex-col items-center justify-center text-center">
+            <div className="text-9xl mb-8 animate-pulse">📺</div>
+            <h1 className="text-5xl font-bold text-white mb-4">Aguardando Chamadas</h1>
+            <p className="text-2xl text-blue-100">
+              {activeCalls.length === 0
+                ? 'Nenhuma chamada pendente'
+                : 'Preparando próximo aluno...'}
+            </p>
+          </div>
+        ) : (
+          <div className="min-h-[60vh] flex flex-col items-center justify-center">
+            {/* Current Call Card */}
+            <div className="bg-white rounded-2xl shadow-2xl p-12 max-w-2xl w-full mb-12 border-l-8 border-verde-principal animate-bounce">
+              <p className="text-center text-gray-600 text-xl mb-6">👇 PRÓXIMO ALUNO 👇</p>
 
-      <div style={styles.statusContainer} className="dispositivo-status-container">
-        <p style={styles.statusText} className="dispositivo-status-text">
-          {allCalls.length === 0
-            ? "✓ Nenhuma chamada. Aguardando..."
-            : `🔴 ${allCalls.length} aluno(s) na fila - Chamando...`}
-        </p>
+              <h2 className="text-center text-6xl font-bold text-azul-principal mb-6">
+                {currentCall.studentName}
+              </h2>
+
+              <div className="bg-azul-claro rounded-xl p-8 mb-8">
+                <p className="text-center text-xl text-azul-principal font-bold">
+                  Turma: {currentCall.studentClass}
+                </p>
+              </div>
+
+              <div className="text-center">
+                <p className="text-gray-600 text-lg">
+                  {callIndex + 1} de {activeCalls.length}
+                </p>
+                <div className="mt-4 flex gap-2 justify-center">
+                  {activeCalls.map((_, idx) => (
+                    <div
+                      key={idx}
+                      className={`h-3 rounded-full transition ${
+                        idx === callIndex
+                          ? 'w-8 bg-verde-principal'
+                          : 'w-3 bg-gray-300'
+                      }`}
+                    ></div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Queue List */}
+            {activeCalls.length > 1 && (
+              <div className="w-full max-w-2xl">
+                <h3 className="text-2xl font-bold text-white mb-6 text-center">
+                  Próximas Chamadas
+                </h3>
+                <div className="space-y-3">
+                  {activeCalls
+                    .slice(callIndex + 1)
+                    .concat(activeCalls.slice(0, callIndex))
+                    .map((call, idx) => (
+                      <div
+                        key={call.id}
+                        className="bg-white bg-opacity-20 backdrop-blur-sm rounded-lg p-4 flex items-center gap-4 border border-white border-opacity-30"
+                      >
+                        <div className="text-4xl flex-shrink-0">
+                          {idx + 2}
+                        </div>
+                        <div className="flex-grow">
+                          <p className="text-white font-bold text-lg">
+                            {call.studentName}
+                          </p>
+                          <p className="text-blue-100 text-sm">
+                            Turma: {call.studentClass}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
-      {allCalls.length === 0 ? (
-        <p style={styles.emptyMessage}>Nenhuma chamada no momento. Aguardando...</p>
-      ) : (
-        <div style={styles.callsList} className="dispositivo-section">
-          {allCalls.map((call, idx) => {
-            const isCurrentCall = idx === currentCallIndex;
-            return (
-              <div
-                key={call.id}
-                className="dispositivo-call-card"
-                style={{
-                  ...styles.callCard,
-                  ...(isCurrentCall
-                    ? {
-                        backgroundColor: "#ff6b6b",
-                        borderColor: "#d63031",
-                        boxShadow: "0 0 20px rgba(214, 48, 49, 0.5)",
-                      }
-                    : {
-                        backgroundColor: "#e8e8e8",
-                        opacity: 0.6,
-                      }),
-                }}
-              >
-                <div style={styles.callInfo} className="dispositivo-call-info">
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: 15,
-                      alignItems: "center",
-                    }}
-                  >
-                    <div
-                      style={{
-                        fontSize: 24,
-                        fontWeight: 700,
-                        backgroundColor: isCurrentCall ? "#d63031" : "#999",
-                        color: "white",
-                        width: 50,
-                        height: 50,
-                        borderRadius: "50%",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      {idx + 1}
-                    </div>
-                    <div>
-                      <div
-                        style={{
-                          fontSize: isCurrentCall ? 24 : 16,
-                          fontWeight: 700,
-                          color: isCurrentCall ? "#d63031" : "#333",
-                        }}
-                      >
-                        {call.studentName}
-                      </div>
-                      <div style={{ fontSize: 14, color: isCurrentCall ? "#a93030" : "#666" }}>
-                        Turma: {call.studentClass}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                {isCurrentCall && (
-                  <div style={styles.callStatus}>🔊 Chamando...</div>
-                )}
-              </div>
-            );
-          })}
+      {/* Footer Stats */}
+      <div className="fixed bottom-0 left-0 right-0 bg-black bg-opacity-40 backdrop-blur-sm border-t border-white border-opacity-20">
+        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+          <p className="text-white text-lg font-semibold">
+            Total na Fila: <span className="text-verde-principal">{activeCalls.length}</span>
+          </p>
+          <p className="text-white text-lg font-semibold">
+            Hora: <span className="text-verde-principal">{new Date().toLocaleTimeString('pt-BR')}</span>
+          </p>
         </div>
-      )}
+      </div>
     </div>
   );
 }
