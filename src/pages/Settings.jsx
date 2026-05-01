@@ -1,11 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { useTenant } from '../context/TenantContext';
-import { getDataSource, isApiDataSource } from '../services/dataSource';
+import { useDataSourceConfig } from '../context/TenantContext';
+import { getDataSource, isApiDataSource, setDataSourceConfig } from '../services/dataSource';
 import Navbar from '../components/Navbar';
 
 export default function Settings() {
   const tenantId = useTenant();
-  const [formData, setFormData] = useState({ nome: '', email: '', features: {} });
+  const { dataSource: contextDataSource, apiUrl: contextApiUrl, setDataSource, setApiUrl } = useDataSourceConfig();
+  const [formData, setFormData] = useState({
+    id: 'general',
+    nome: '',
+    email: '',
+    dataSource: contextDataSource,
+    apiUrl: contextApiUrl,
+    features: {},
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
@@ -24,8 +33,11 @@ export default function Settings() {
       setError(null);
       const settings = await dataSource.getSettings(tenantId);
       setFormData({
+        id: settings?.id || 'general',
         nome: settings?.nome || tenantId,
         email: settings?.email || '',
+        dataSource: settings?.dataSource || contextDataSource,
+        apiUrl: settings?.apiUrl || contextApiUrl,
         features: settings?.features || { porteiro: false, display: false },
       });
     } catch (err) {
@@ -64,7 +76,18 @@ export default function Settings() {
         return;
       }
 
+      if (formData.dataSource === 'api' && !formData.apiUrl.trim()) {
+        setError('URL da API é obrigatória quando usando API como fonte de dados');
+        return;
+      }
+
+      // Save to data source (Firestore or API)
       await dataSource.updateSettings(tenantId, formData);
+
+      // Update context and module-level configuration
+      setDataSource(formData.dataSource, formData.apiUrl);
+      setDataSourceConfig(formData.dataSource, formData.apiUrl);
+
       setSuccess('Configurações salvas com sucesso!');
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
@@ -122,11 +145,8 @@ export default function Settings() {
                 type="text"
                 value={formData.nome}
                 onChange={(e) => handleInputChange('nome', e.target.value)}
-                disabled={isUsingAPI}
                 placeholder="Nome do tenant"
-                className={`w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-azul-principal focus:border-transparent ${
-                  isUsingAPI ? 'bg-gray-100 cursor-not-allowed' : ''
-                }`}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-azul-principal focus:border-transparent"
               />
               <p className="text-xs text-gray-500 mt-2">Identificador único da instituição</p>
             </div>
@@ -140,14 +160,53 @@ export default function Settings() {
                 type="email"
                 value={formData.email}
                 onChange={(e) => handleInputChange('email', e.target.value)}
-                disabled={isUsingAPI}
                 placeholder="email@exemplo.com"
-                className={`w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-azul-principal focus:border-transparent ${
-                  isUsingAPI ? 'bg-gray-100 cursor-not-allowed' : ''
-                }`}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-azul-principal focus:border-transparent"
               />
               <p className="text-xs text-gray-500 mt-2">Email para contato e notificações</p>
             </div>
+
+            {/* Data Source */}
+            <div className="mb-8">
+              <label className="block text-sm font-bold text-gray-700 mb-3">
+                Fonte de Dados
+              </label>
+              <select
+                value={formData.dataSource}
+                onChange={(e) => handleInputChange('dataSource', e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-azul-principal focus:border-transparent"
+              >
+                <option value="firestore">Firestore</option>
+                <option value="api">API REST</option>
+              </select>
+              <p className="text-xs text-gray-500 mt-2">
+                {formData.dataSource === 'firestore'
+                  ? 'Usando Firestore como banco de dados principal'
+                  : 'Usando API REST para integração'}
+              </p>
+            </div>
+
+            {/* API URL (shown only when API is selected) */}
+            {formData.dataSource === 'api' && (
+              <div className="mb-8 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <label className="block text-sm font-bold text-gray-700 mb-3">
+                  URL Base da API
+                </label>
+                <input
+                  type="text"
+                  value={formData.apiUrl}
+                  onChange={(e) => handleInputChange('apiUrl', e.target.value)}
+                  placeholder="http://localhost:3000/api"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-azul-principal focus:border-transparent"
+                />
+                <p className="text-xs text-gray-500 mt-2">
+                  URL base para todas as requisições da API. Será concatenada com &lt;tenant&gt; e endpoints específicos.
+                </p>
+                <p className="text-xs text-blue-600 mt-2 font-medium">
+                  Exemplo: {formData.apiUrl}/{'{tenant}'}/students
+                </p>
+              </div>
+            )}
 
             {/* Features */}
             <div className="mb-12 pb-8 border-b border-gray-200">
@@ -164,12 +223,9 @@ export default function Settings() {
                       type="checkbox"
                       checked={formData.features.porteiro || false}
                       onChange={() => handleFeatureToggle('porteiro')}
-                      disabled={isUsingAPI}
                       className="sr-only peer"
                     />
-                    <div className={`w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-azul-claro rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-azul-principal ${
-                      isUsingAPI ? 'cursor-not-allowed opacity-50' : ''
-                    }`}></div>
+                    <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-azul-claro rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-azul-principal"></div>
                   </label>
                 </div>
 
@@ -183,12 +239,9 @@ export default function Settings() {
                       type="checkbox"
                       checked={formData.features.display || false}
                       onChange={() => handleFeatureToggle('display')}
-                      disabled={isUsingAPI}
                       className="sr-only peer"
                     />
-                    <div className={`w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-azul-claro rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-azul-principal ${
-                      isUsingAPI ? 'cursor-not-allowed opacity-50' : ''
-                    }`}></div>
+                    <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-azul-claro rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-azul-principal"></div>
                   </label>
                 </div>
               </div>
@@ -196,25 +249,21 @@ export default function Settings() {
 
             {/* Buttons */}
             <div className="flex gap-4 justify-end">
-              {!isUsingAPI && (
-                <>
-                  <button
-                    type="button"
-                    onClick={handleCancel}
-                    disabled={saveLoading}
-                    className="px-6 py-3 bg-gray-300 hover:bg-gray-400 text-gray-800 rounded-lg font-bold transition disabled:opacity-50"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={saveLoading}
-                    className="px-6 py-3 bg-verde-principal hover:bg-verde-hover text-white rounded-lg font-bold transition disabled:opacity-50"
-                  >
-                    {saveLoading ? 'Salvando...' : 'Salvar Configurações'}
-                  </button>
-                </>
-              )}
+              <button
+                type="button"
+                onClick={handleCancel}
+                disabled={saveLoading}
+                className="px-6 py-3 bg-gray-300 hover:bg-gray-400 text-gray-800 rounded-lg font-bold transition disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={saveLoading}
+                className="px-6 py-3 bg-verde-principal hover:bg-verde-hover text-white rounded-lg font-bold transition disabled:opacity-50"
+              >
+                {saveLoading ? 'Salvando...' : 'Salvar Configurações'}
+              </button>
             </div>
           </form>
         )}

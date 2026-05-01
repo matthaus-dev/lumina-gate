@@ -2,6 +2,7 @@ import { db } from '../firebase';
 import {
   collection,
   getDocs,
+  getDoc,
   addDoc,
   updateDoc,
   deleteDoc,
@@ -10,10 +11,32 @@ import {
   where,
   onSnapshot,
   serverTimestamp,
+  setDoc,
 } from 'firebase/firestore';
 
-const DATA_SOURCE = import.meta.env.VITE_DATA_SOURCE || 'firestore';
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+// Dynamic configuration - can be updated at runtime
+let DATA_SOURCE = import.meta.env.VITE_DATA_SOURCE || 'firestore';
+let API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+
+/**
+ * Update data source configuration at runtime
+ */
+export function setDataSourceConfig(dataSource, apiUrl) {
+  console.log('[DataSource] Setting config:', { dataSource, apiUrl });
+  if (dataSource) {
+    DATA_SOURCE = dataSource;
+  }
+  if (apiUrl) {
+    API_URL = apiUrl;
+  }
+}
+
+/**
+ * Get current data source configuration
+ */
+export function getDataSourceConfig() {
+  return { dataSource: DATA_SOURCE, apiUrl: API_URL };
+}
 
 /**
  * Firestore adapter implementation
@@ -89,31 +112,20 @@ const firestoreAdapter = {
 
   // Settings
   async getSettings(tenantId) {
-    const settingsRef = collection(db, 'tenants', tenantId, 'settings');
-    const snapshot = await getDocs(settingsRef);
-    if (snapshot.empty) {
-      return { id: 'general', name: tenantId, email: '', enablePorteiro: true, enableDispositivo: true };
+    const settingsRef = doc(db, 'tenants', tenantId, 'settings', 'general');
+    const snapshot = await getDoc(settingsRef);
+    if (!snapshot.exists()) {
+      return { id: 'general', nome: tenantId, email: '', features: { porteiro: false, display: false } };
     }
-    const doc = snapshot.docs[0];
-    return { id: doc.id, ...doc.data() };
+    return { id: snapshot.id, ...snapshot.data() };
   },
 
   async updateSettings(tenantId, settings) {
     const settingsRef = doc(db, 'tenants', tenantId, 'settings', settings.id || 'general');
-    await updateDoc(settingsRef, {
+    await setDoc(settingsRef, {
       ...settings,
       updatedAt: serverTimestamp(),
-    }).catch(async (error) => {
-      if (error.code === 'not-found') {
-        const settingsCollection = collection(db, 'tenants', tenantId, 'settings');
-        await addDoc(settingsCollection, {
-          ...settings,
-          createdAt: serverTimestamp(),
-        });
-      } else {
-        throw error;
-      }
-    });
+    }, { merge: true });
     return settings;
   },
 
