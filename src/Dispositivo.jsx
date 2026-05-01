@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTenant } from './context/TenantContext';
+import { useDataSourceConfig } from './context/TenantContext';
 import { getDataSource } from './services/dataSource';
 import Navbar from './components/Navbar';
 
@@ -8,6 +9,12 @@ export default function Dispositivo() {
   const [currentCall, setCurrentCall] = useState(null);
   const [activeCalls, setActiveCalls] = useState([]);
   const [callIndex, setCallIndex] = useState(0);
+  const [voiceSettings, setVoiceSettings] = useState({
+    enabled: true,
+    rate: 0.9,
+    pitch: 1.0,
+    selectedVoice: null,
+  });
 
   const dataSource = getDataSource();
 
@@ -23,6 +30,22 @@ export default function Dispositivo() {
         unsubscribe();
       }
     };
+  }, [tenantId]);
+
+  // Load voice settings
+  useEffect(() => {
+    const loadVoiceSettings = async () => {
+      try {
+        const settings = await dataSource.getSettings(tenantId);
+        if (settings?.features?.voice) {
+          setVoiceSettings(settings.features.voice);
+        }
+      } catch (error) {
+        console.error('[Dispositivo] Error loading voice settings:', error);
+      }
+    };
+
+    loadVoiceSettings();
   }, [tenantId]);
 
   // Update current call every 7 seconds
@@ -44,7 +67,7 @@ export default function Dispositivo() {
 
   // Speak current call name
   useEffect(() => {
-    if (currentCall?.studentName) {
+    if (currentCall?.studentName && voiceSettings.enabled) {
       console.log(`[Dispositivo] Anunciando: ${currentCall.studentName}`);
 
       const synthesis = window.speechSynthesis;
@@ -55,21 +78,28 @@ export default function Dispositivo() {
           `Aluno ${currentCall.studentName}, da turma ${currentCall.studentClass}.`
         );
         utterance.lang = 'pt-BR';
-        utterance.rate = 0.9;
+        utterance.rate = voiceSettings.rate;
+        utterance.pitch = voiceSettings.pitch;
 
-        // Find Daniel voice if available
+        // Find selected voice or use first PT voice
         const voices = synthesis.getVoices();
-        const danielVoice = voices.find(
-          v => v.name.includes('Daniel') || v.lang.includes('pt-BR')
-        );
-        if (danielVoice) {
-          utterance.voice = danielVoice;
+        if (voiceSettings.selectedVoice) {
+          const selectedVoice = voices.find(v => v.name === voiceSettings.selectedVoice);
+          if (selectedVoice) {
+            utterance.voice = selectedVoice;
+          }
+        } else {
+          // Use first Portuguese voice available
+          const ptVoice = voices.find(v => v.lang.startsWith('pt'));
+          if (ptVoice) {
+            utterance.voice = ptVoice;
+          }
         }
 
         synthesis.speak(utterance);
       }
     }
-  }, [currentCall]);
+  }, [currentCall, voiceSettings]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-azul-principal to-azul-hover">
