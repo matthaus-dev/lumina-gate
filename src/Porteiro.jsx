@@ -28,7 +28,8 @@ export default function Porteiro() {
   const [classes, setClasses] = useState([]);
   const [selectedTurmaId, setSelectedTurmaId] = useState(null);
   const [activeCalls, setActiveCalls] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [callingStudentIds, setCallingStudentIds] = useState(() => new Set());
+  const [confirmingCallIds, setConfirmingCallIds] = useState(() => new Set());
   const [loadingStudents, setLoadingStudents] = useState(true);
   const [voiceSettings, setVoiceSettings] = useState({
     enabled: true,
@@ -107,7 +108,7 @@ export default function Porteiro() {
   }, [tenantId]);
 
   const chamarAluno = async (studentId, nome, turmaIdOrName) => {
-    setLoading(true);
+    setCallingStudentIds(prev => new Set(prev).add(studentId));
     try {
       // turmaIdOrName can be either an ID (from Firestore) or the name (from API)
       const turma = classes.find(c => c.id === turmaIdOrName);
@@ -127,8 +128,13 @@ export default function Porteiro() {
     } catch (error) {
       console.error('[Porteiro] Erro ao chamar aluno:', error);
       alert('Erro ao chamar aluno: ' + error.message);
+    } finally {
+      setCallingStudentIds(prev => {
+        const next = new Set(prev);
+        next.delete(studentId);
+        return next;
+      });
     }
-    setLoading(false);
   };
 
   const playCallSound = (studentName, turmaName) => {
@@ -163,18 +169,23 @@ export default function Porteiro() {
   };
 
   const confirmarSaida = async (callId) => {
-    setLoading(true);
+    setConfirmingCallIds(prev => new Set(prev).add(callId));
     try {
-      console.log(`[Porteiro] Confirmando saída da chamada: ${callId}`);
+      console.log(`[Porteiro] Confirmando saida da chamada: ${callId}`);
       await dataSource.updateCall(tenantId, callId, {
         status: 'confirmed',
       });
-      console.log(`[Porteiro] Saída confirmada`);
+      console.log(`[Porteiro] Saida confirmada`);
     } catch (error) {
-      console.error('[Porteiro] Erro ao confirmar saída:', error);
-      alert('Erro ao confirmar saída: ' + error.message);
+      console.error('[Porteiro] Erro ao confirmar saida:', error);
+      alert('Erro ao confirmar saida: ' + error.message);
+    } finally {
+      setConfirmingCallIds(prev => {
+        const next = new Set(prev);
+        next.delete(callId);
+        return next;
+      });
     }
-    setLoading(false);
   };
 
   return (
@@ -232,6 +243,7 @@ export default function Porteiro() {
                 <div className="space-y-3">
                   {studentsByTurma[selectedTurmaId].alunos.map(student => {
                     const alreadyInQueue = activeCalls.some(c => c.studentId === student.id);
+                    const isCallingStudent = callingStudentIds.has(student.id);
                     return (
                       <div
                         key={student.id}
@@ -240,7 +252,7 @@ export default function Porteiro() {
                         <span className="font-medium text-gray-900">{student.nome}</span>
                         <button
                           onClick={() => chamarAluno(student.id, student.nome, student.turmaName || student.turmaId)}
-                          disabled={loading || alreadyInQueue}
+                          disabled={isCallingStudent || alreadyInQueue}
                           className={`px-6 py-2 rounded-lg font-bold transition ${
                             alreadyInQueue
                               ? 'bg-gray-300 text-gray-600 cursor-not-allowed opacity-60'
@@ -253,7 +265,7 @@ export default function Porteiro() {
                               <Check className="w-4 h-4" />
                               Na Fila
                             </span>
-                          ) : 'Chamar'}
+                          ) : isCallingStudent ? 'Chamando...' : 'Chamar'}
                         </button>
                       </div>
                     );
@@ -274,24 +286,27 @@ export default function Porteiro() {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {activeCalls.map(call => (
-                    <div
-                      key={call.id}
-                      className="flex items-center justify-between p-4 bg-yellow-50 rounded-lg border-l-4 border-yellow-400"
-                    >
-                      <div>
-                        <p className="font-bold text-gray-900">{call.studentName}</p>
-                        <p className="text-sm text-gray-600">{call.studentClass}</p>
-                      </div>
-                      <button
-                        onClick={() => confirmarSaida(call.id)}
-                        disabled={loading}
-                        className="px-6 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-bold transition disabled:opacity-50"
+                  {activeCalls.map(call => {
+                    const isConfirmingCall = confirmingCallIds.has(call.id);
+                    return (
+                      <div
+                        key={call.id}
+                        className="flex items-center justify-between p-4 bg-yellow-50 rounded-lg border-l-4 border-yellow-400"
                       >
-                        Confirmar Saída
-                      </button>
-                    </div>
-                  ))}
+                        <div>
+                          <p className="font-bold text-gray-900">{call.studentName}</p>
+                          <p className="text-sm text-gray-600">{call.studentClass}</p>
+                        </div>
+                        <button
+                          onClick={() => confirmarSaida(call.id)}
+                          disabled={isConfirmingCall}
+                          className="px-6 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-bold transition disabled:opacity-50"
+                        >
+                          {isConfirmingCall ? 'Confirmando...' : 'Confirmar Saida'}
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -301,3 +316,5 @@ export default function Porteiro() {
     </div>
   );
 }
+
+
