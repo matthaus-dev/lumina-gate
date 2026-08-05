@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Users } from 'lucide-react';
 import { useTenant } from '../context/TenantContext';
 import { getDataSource, isApiDataSource } from '../services/dataSource';
 import Navbar from '../components/Navbar';
@@ -134,7 +135,10 @@ export default function Students() {
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-12">
           <div>
-            <h1 className="text-4xl font-bold text-azul-principal mb-2">👥 Gerenciar Alunos</h1>
+            <h1 className="text-4xl font-bold text-azul-principal mb-2 flex items-center gap-3">
+              <Users className="w-10 h-10" />
+              Gerenciar Alunos
+            </h1>
             <p className="text-gray-600">Cadastre e gerencie os alunos da instituição</p>
           </div>
           {!isUsingAPI && (

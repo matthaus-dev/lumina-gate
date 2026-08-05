@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Settings as SettingsIcon } from 'lucide-react';
 import { useTenant } from '../context/TenantContext';
 import { useDataSourceConfig } from '../context/TenantContext';
 import { getDataSource, isApiDataSource, setDataSourceConfig } from '../services/dataSource';
@@ -121,7 +122,10 @@ export default function Settings() {
       <div className="max-w-4xl mx-auto px-4 py-12">
         {/* Header */}
         <div className="mb-12">
-          <h1 className="text-4xl font-bold text-azul-principal mb-2">⚙️ Configurações</h1>
+          <h1 className="text-4xl font-bold text-azul-principal mb-2 flex items-center gap-3">
+            <SettingsIcon className="w-10 h-10" />
+            Configurações
+          </h1>
           <p className="text-gray-600">Gerencie as configurações da sua instituição</p>
         </div>
 

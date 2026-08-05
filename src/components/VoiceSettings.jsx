@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Settings, Volume2 } from 'lucide-react';
 
 export default function VoiceSettings({ value = {}, onChange }) {
   const [voices, setVoices] = useState([]);
@@ -77,7 +78,10 @@ export default function VoiceSettings({ value = {}, onChange }) {
   return (
     <div className="space-y-6 p-6 bg-gray-50 rounded-lg border border-gray-200">
       <div>
-        <h3 className="text-lg font-bold text-gray-900 mb-4">⚙️ Configuração de Voz (TTS)</h3>
+        <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+          <Settings className="w-5 h-5 text-azul-principal" />
+          Configuração de Voz (TTS)
+        </h3>
       </div>
 
       {/* Enable/Disable Toggle */}
@@ -174,7 +178,10 @@ export default function VoiceSettings({ value = {}, onChange }) {
               disabled={testSpeaking}
               className="w-full px-4 py-2 bg-azul-principal hover:bg-azul-hover text-white font-medium rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {testSpeaking ? '🔊 Ouvindo prévia...' : '🔊 Ouvir Prévia'}
+              <span className="inline-flex items-center justify-center gap-2">
+                <Volume2 className="w-4 h-4" />
+                {testSpeaking ? 'Ouvindo prévia...' : 'Ouvir Prévia'}
+              </span>
             </button>
             <p className="text-xs text-gray-500 mt-2 text-center">
               Testa: "Aluno João Silva, da turma Infantil 4."

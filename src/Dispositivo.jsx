@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Monitor, UserRound } from 'lucide-react';
 import { useTenant } from './context/TenantContext';
 import { useDataSourceConfig } from './context/TenantContext';
 import { getDataSource } from './services/dataSource';
@@ -108,7 +109,7 @@ export default function Dispositivo() {
       <div className="max-w-7xl mx-auto px-4 py-8">
         {!currentCall ? (
           <div className="h-[60vh] flex flex-col items-center justify-center text-center">
-            <div className="text-9xl mb-8 animate-pulse">📺</div>
+            <Monitor className="w-28 h-28 mb-8 animate-pulse text-white" />
             <h1 className="text-5xl font-bold text-white mb-4">Aguardando Chamadas</h1>
             <p className="text-2xl text-blue-100">
               {activeCalls.length === 0
@@ -120,7 +121,10 @@ export default function Dispositivo() {
           <div className="min-h-[60vh] flex flex-col items-center justify-center">
             {/* Current Call Card */}
             <div className="bg-white rounded-2xl shadow-2xl p-12 max-w-2xl w-full mb-12 border-l-8 border-verde-principal animate-bounce">
-              <p className="text-center text-gray-600 text-xl mb-6">👇 PRÓXIMO ALUNO 👇</p>
+              <p className="text-center text-gray-600 text-xl mb-6 inline-flex items-center justify-center gap-2 w-full">
+                <UserRound className="w-6 h-6" />
+                PROXIMO ALUNO
+              </p>
 
               <h2 className="text-center text-6xl font-bold text-azul-principal mb-6">
                 {currentCall.studentName}

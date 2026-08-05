@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Check, ClipboardList, Phone, Users } from 'lucide-react';
 import { useTenant } from './context/TenantContext';
 import { getDataSource, isApiDataSource } from './services/dataSource';
 import Navbar from './components/Navbar';
@@ -72,9 +73,9 @@ export default function Porteiro() {
       console.log(`[Porteiro] Carregando alunos do tenant: ${tenantId}`);
       const data = await dataSource.getStudents(tenantId);
       setStudents(data || []);
-      console.log(`[Porteiro] ✅ ${(data || []).length} alunos carregados`);
+      console.log(`[Porteiro] ${(data || []).length} alunos carregados`);
     } catch (error) {
-      console.error('[Porteiro] ❌ Erro ao carregar alunos:', error);
+      console.error('[Porteiro] Erro ao carregar alunos:', error);
       alert('Erro ao carregar alunos: ' + error.message);
     } finally {
       setLoadingStudents(false);
@@ -117,14 +118,14 @@ export default function Porteiro() {
         studentName: nome,
         studentClass: turmaName,
       });
-      console.log(`[Porteiro] ✅ Chamada criada`);
+      console.log(`[Porteiro] Chamada criada`);
 
       // Play sound with voice settings
       if (voiceSettings.enabled) {
         playCallSound(nome, turmaName);
       }
     } catch (error) {
-      console.error('[Porteiro] ❌ Erro ao chamar aluno:', error);
+      console.error('[Porteiro] Erro ao chamar aluno:', error);
       alert('Erro ao chamar aluno: ' + error.message);
     }
     setLoading(false);
@@ -168,7 +169,7 @@ export default function Porteiro() {
       await dataSource.updateCall(tenantId, callId, {
         status: 'confirmed',
       });
-      console.log(`[Porteiro] ✅ Saída confirmada`);
+      console.log(`[Porteiro] Saída confirmada`);
     } catch (error) {
       console.error('[Porteiro] Erro ao confirmar saída:', error);
       alert('Erro ao confirmar saída: ' + error.message);
@@ -180,7 +181,10 @@ export default function Porteiro() {
     <div className="min-h-screen bg-gray-50">
       <Navbar />
       <div className="max-w-7xl mx-auto px-4 py-12">
-        <h2 className="text-4xl font-bold text-azul-principal mb-12">📞 Porteiro - Lista de Alunos</h2>
+        <h2 className="text-4xl font-bold text-azul-principal mb-12 flex items-center gap-3">
+          <Phone className="w-10 h-10" />
+          Porteiro - Lista de Alunos
+        </h2>
 
         {loadingStudents && (
           <div className="text-center py-12 text-gray-600">
@@ -222,7 +226,7 @@ export default function Porteiro() {
             {selectedTurmaId && (
               <div className="mb-12">
                 <h3 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-                  <span className="text-3xl">👥</span>
+                  <Users className="w-8 h-8 text-azul-principal" />
                   Alunos da Turma {studentsByTurma[selectedTurmaId].nome}
                 </h3>
                 <div className="space-y-3">
@@ -244,7 +248,12 @@ export default function Porteiro() {
                           }`}
                           title={alreadyInQueue ? 'Aluno já está na fila' : ''}
                         >
-                          {alreadyInQueue ? '✓ Na Fila' : 'Chamar'}
+                          {alreadyInQueue ? (
+                            <span className="inline-flex items-center gap-2">
+                              <Check className="w-4 h-4" />
+                              Na Fila
+                            </span>
+                          ) : 'Chamar'}
                         </button>
                       </div>
                     );
@@ -256,7 +265,7 @@ export default function Porteiro() {
             {/* Fila de Chamadas */}
             <div>
               <h3 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-                <span className="text-3xl">📋</span>
+                <ClipboardList className="w-8 h-8 text-azul-principal" />
                 Fila de Chamadas ({activeCalls.length})
               </h3>
               {activeCalls.length === 0 ? (
