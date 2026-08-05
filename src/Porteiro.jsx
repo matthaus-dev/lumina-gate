@@ -200,12 +200,13 @@ export default function Porteiro() {
         {!loadingStudents && (
           <>
             {/* Abas de Turmas */}
-            <div className="flex gap-2 mb-8 overflow-x-auto pb-2 border-b border-gray-200">
+            <div className="mb-8 max-h-56 overflow-y-auto overflow-x-hidden rounded-lg border border-gray-200 bg-white p-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
               {turmaIds.map(turmaId => (
                 <button
                   key={turmaId}
                   onClick={() => setSelectedTurmaId(turmaId)}
-                  className={`px-6 py-3 font-medium rounded-lg whitespace-nowrap transition ${
+                  className={`w-full min-w-0 px-4 py-3 text-left font-medium rounded-lg break-words transition ${
                     selectedTurmaId === turmaId
                       ? 'bg-azul-principal text-white'
                       : 'bg-white text-gray-700 border border-gray-300 hover:border-azul-principal hover:text-azul-principal'
@@ -214,6 +215,7 @@ export default function Porteiro() {
                   {studentsByTurma[turmaId].nome}
                 </button>
               ))}
+              </div>
             </div>
 
             {/* Lista de Alunos */}

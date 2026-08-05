@@ -30,8 +30,8 @@ export default function Navbar() {
       try {
         const dataSource = getDataSource();
         const settings = await dataSource.getSettings(tenantId);
-        if (settings?.name) {
-          setTenantName(settings.name);
+        if (settings?.nome || settings?.name) {
+          setTenantName(settings.nome || settings.name);
         }
       } catch (error) {
         console.error('[Navbar] Error loading tenant settings:', error);

@@ -11,11 +11,23 @@ export default function Students() {
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({ nome: '', turmaId: '' });
+  const [nameFilter, setNameFilter] = useState('');
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
 
   const dataSource = getDataSource();
   const isUsingAPI = isApiDataSource();
+
+  const getStudentClassName = (student) => {
+    return student.turmaName || (student.turmaId ? classes.find(c => c.id === student.turmaId)?.nome || '-' : '-');
+  };
+
+  const filteredStudents = students.filter((student) => {
+    const studentName = (student.nome || '').toLowerCase();
+    const searchName = nameFilter.trim().toLowerCase();
+
+    return !searchName || studentName.includes(searchName);
+  });
 
   // Load students and classes on mount
   useEffect(() => {
@@ -163,47 +175,57 @@ export default function Students() {
             <p className="text-gray-500">Clique no botão "Adicionar Aluno" para começar.</p>
           </div>
         ) : (
-          <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-            <table className="w-full">
-              <thead>
-                <tr className="bg-azul-principal text-white">
-                  <th className="px-6 py-4 text-left font-bold">Nome</th>
-                  <th className="px-6 py-4 text-left font-bold">Turma</th>
-                  <th className="px-6 py-4 text-left font-bold">Ações</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {students.map((student) => (
-                  <tr key={student.id} className="hover:bg-gray-50 transition">
-                    <td className="px-6 py-4 font-medium text-gray-900">{student.nome}</td>
-                    <td className="px-6 py-4 text-gray-700">
-                      {student.turmaName || (student.turmaId ? classes.find(c => c.id === student.turmaId)?.nome || '-' : '-')}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex gap-2">
-                        {!isUsingAPI && (
-                          <>
-                            <button
-                              onClick={() => handleOpenModal(student)}
-                              className="px-4 py-2 bg-azul-principal hover:bg-azul-hover text-white rounded-lg font-medium text-sm transition"
-                            >
-                              Editar
-                            </button>
-                            <button
-                              onClick={() => handleDelete(student.id)}
-                              className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium text-sm transition"
-                            >
-                              Deletar
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <>
+          <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+            <div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">
+                  Filtrar por nome
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="search"
+                    value={nameFilter}
+                    onChange={(e) => setNameFilter(e.target.value)}
+                    placeholder="Digite o nome do aluno"
+                    className="min-w-0 flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-azul-principal focus:border-transparent"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setNameFilter('')}
+                    className="w-12 h-12 flex items-center justify-center bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg font-bold transition"
+                    aria-label="Limpar filtro"
+                    title="Limpar filtro"
+                  >
+                    X
+                  </button>
+                </div>
+              </div>
+            </div>
+            <p className="text-sm text-gray-500 mt-4">
+              Exibindo {filteredStudents.length} de {students.length} alunos
+            </p>
           </div>
+
+          {filteredStudents.length === 0 ? (
+            <div className="bg-white rounded-lg shadow-sm p-12 text-center border-l-4 border-azul-principal">
+              <p className="text-gray-600">Nenhum aluno encontrado com os filtros atuais.</p>
+            </div>
+          ) : (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredStudents.map((student) => (
+              <div
+                key={student.id}
+                className="bg-white rounded-lg shadow-sm hover:shadow-md transition border-l-4 border-verde-secundaria p-6"
+              >
+                <h3 className="text-xl font-bold text-verde-secundaria mb-4 break-words">{student.nome}</h3>
+                <p className="text-sm font-medium text-gray-500 mb-1">Turma</p>
+                <p className="text-gray-800 font-semibold break-words">{getStudentClassName(student)}</p>
+              </div>
+            ))}
+          </div>
+          )}
+          </>
         )}
       </div>
 
@@ -275,3 +297,4 @@ export default function Students() {
     </div>
   );
 }
+

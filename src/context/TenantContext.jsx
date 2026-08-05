@@ -4,15 +4,16 @@ const TenantContext = createContext(null);
 
 export function TenantProvider({ children, tenantId }) {
   const [dataSource, setDataSourceState] = useState(() => {
-    // Initialize from localStorage, then env vars
+    // Env wins so old localStorage values cannot accidentally switch the app back to Firestore.
+    const configured = import.meta.env.VITE_DATA_SOURCE;
     const stored = localStorage.getItem('dataSource');
-    return stored || (import.meta.env.VITE_DATA_SOURCE || 'firestore');
+    return configured || stored || 'api';
   });
 
   const [apiUrl, setApiUrlState] = useState(() => {
-    // Initialize from localStorage, then env vars
+    const configured = import.meta.env.VITE_API_URL;
     const stored = localStorage.getItem('apiUrl');
-    return stored || (import.meta.env.VITE_API_URL || 'http://localhost:3000/api');
+    return configured || stored || 'http://localhost:3000/api';
   });
 
   const [user, setUserState] = useState(() => {

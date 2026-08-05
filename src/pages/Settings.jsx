@@ -93,7 +93,9 @@ export default function Settings() {
       }
 
       // Save to data source (Firestore or API)
-      await dataSource.updateSettings(tenantId, formData);
+      if (!isUsingAPI) {
+        await dataSource.updateSettings(tenantId, formData);
+      }
 
       // Update context and module-level configuration
       setDataSource(formData.dataSource, formData.apiUrl);

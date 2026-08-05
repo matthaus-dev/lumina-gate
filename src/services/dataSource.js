@@ -14,8 +14,9 @@ import {
   setDoc,
 } from 'firebase/firestore';
 
-// Dynamic configuration - can be updated at runtime
-let DATA_SOURCE = import.meta.env.VITE_DATA_SOURCE || 'firestore';
+// Dynamic configuration - can be updated at runtime.
+// The app reads all domain data from the API by default; Firestore is reserved for calls.
+let DATA_SOURCE = import.meta.env.VITE_DATA_SOURCE || 'api';
 let API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
 /**
@@ -242,37 +243,15 @@ const apiAdapter = {
   },
 
   async createStudent(tenantId, data) {
-    const url = `${API_URL}/${tenantId}/students`;
-    console.log('[DataSource] Creating student at:', url, data);
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-    if (!response.ok) throw new Error(`Failed to create student: ${response.status}`);
-    return response.json();
+    throw new Error('Operacao indisponivel: alunos sao gerenciados pela API externa.');
   },
 
   async updateStudent(tenantId, studentId, data) {
-    const url = `${API_URL}/${tenantId}/students/${studentId}`;
-    console.log('[DataSource] Updating student at:', url, data);
-    const response = await fetch(url, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-    if (!response.ok) throw new Error(`Failed to update student: ${response.status}`);
-    return response.json();
+    throw new Error('Operacao indisponivel: alunos sao gerenciados pela API externa.');
   },
 
   async deleteStudent(tenantId, studentId) {
-    const url = `${API_URL}/${tenantId}/students/${studentId}`;
-    console.log('[DataSource] Deleting student at:', url);
-    const response = await fetch(url, {
-      method: 'DELETE',
-    });
-    if (!response.ok) throw new Error(`Failed to delete student: ${response.status}`);
-    return true;
+    throw new Error('Operacao indisponivel: alunos sao gerenciados pela API externa.');
   },
 
   // Classes
@@ -290,31 +269,15 @@ const apiAdapter = {
   },
 
   async createClass(tenantId, data) {
-    const response = await fetch(`${API_URL}/${tenantId}/classes`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-    if (!response.ok) throw new Error(`Failed to create class: ${response.status}`);
-    return response.json();
+    throw new Error('Operacao indisponivel: turmas sao gerenciadas pela API externa.');
   },
 
   async updateClass(tenantId, classId, data) {
-    const response = await fetch(`${API_URL}/${tenantId}/classes/${classId}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-    if (!response.ok) throw new Error(`Failed to update class: ${response.status}`);
-    return response.json();
+    throw new Error('Operacao indisponivel: turmas sao gerenciadas pela API externa.');
   },
 
   async deleteClass(tenantId, classId) {
-    const response = await fetch(`${API_URL}/${tenantId}/classes/${classId}`, {
-      method: 'DELETE',
-    });
-    if (!response.ok) throw new Error(`Failed to delete class: ${response.status}`);
-    return true;
+    throw new Error('Operacao indisponivel: turmas sao gerenciadas pela API externa.');
   },
 
   // Settings
@@ -325,13 +288,7 @@ const apiAdapter = {
   },
 
   async updateSettings(tenantId, settings) {
-    const response = await fetch(`${API_URL}/${tenantId}/settings`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(settings),
-    });
-    if (!response.ok) throw new Error(`Failed to update settings: ${response.status}`);
-    return response.json();
+    throw new Error('Operacao indisponivel: configuracoes sao parametrizadas no ambiente/API.');
   },
 
   // Calls
